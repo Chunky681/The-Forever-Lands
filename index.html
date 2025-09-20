@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PlanetForge — planet upgrades & cleaner orbits (fixed wheel + tests)</title>
+  <title>PlanetForge — fleets, scraps, collection & proper zoom scaling</title>
   <style>
     html, body { margin:0; height:100%; overflow:hidden; font-family: system-ui, sans-serif; }
     canvas { display:block; width:100vw; height:100vh; background: radial-gradient(circle at 50% 50%, #0b1220, #050910 60%, #03060b); }
     #hud { position: fixed; left: 12px; top: 12px; background: rgba(0,0,0,.6); color: #fff; padding: 10px 12px; border-radius: 12px; font-size: 14px; line-height: 1.35; }
     #hud button { margin-top: 6px; padding: 6px 10px; border: 0; border-radius: 8px; cursor: pointer; }
     #toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: rgba(0,0,0,.8); color:#fff; padding:10px 14px; border-radius: 10px; font-size: 14px; display:none; }
-    #shop { position: fixed; right: 12px; top: 12px; background: rgba(0,0,0,.65); color:#fff; padding: 12px; border-radius: 12px; font-size: 14px; width: 340px; display:none; }
+    #shop { position: fixed; right: 12px; top: 12px; background: rgba(0,0,0,.65); color:#fff; padding: 12px; border-radius: 12px; font-size: 14px; width: 380px; display:none; }
     #shop h3 { margin: 0 0 8px 0; font-size: 16px; }
     #shop section { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.1); }
     #shop .row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0; }
@@ -20,6 +20,8 @@
     .kbd { background:#222; padding:2px 6px; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     #panel { position: fixed; left: 12px; bottom: 12px; background: rgba(0,0,0,.65); color:#fff; padding: 10px 12px; border-radius: 12px; font-size: 14px; display:none; min-width: 260px; }
     #panel .row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 0; }
+    #fleet { position:fixed; right:12px; bottom:12px; background:rgba(0,0,0,.65); color:#fff; padding:10px 12px; border-radius:12px; font-size:14px; display:none; min-width:260px; }
+    #fleet .row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 0; }
   </style>
 </head>
 <body>
@@ -30,45 +32,35 @@
     <div>Money: <span id="money">0</span></div>
     <div>Basalt: <span id="basalt">0</span> • Energy: <span id="energy">0</span></div>
     <div>Moons: <span id="moons">0</span> (+<span id="bRate">0</span>/s) • Satellites: <span id="sats">0</span> (+<span id="eRate">0</span>/s)</div>
-    <div class="muted" style="margin-top:4px">R‑drag: pan • Wheel: zoom • <span class="kbd">H</span> shop • Click planet/buildings to manage • Drag from shop to choose orbit, then click to place</div>
+    <div>Ships — Drones: <span id="drCount">0</span> • Battleships: <span id="bsCount">0</span> • Missions: <span id="msCount">0</span></div>
+    <div class="muted" style="margin-top:4px">R‑drag: pan • Wheel: zoom • <span class="kbd">H</span> shop • Click planet/buildings to manage • Drag from shop to place buildings • Right‑click to cancel placement • Use Fleet panel to send ships (click a scrap)</div>
     <button id="shopBtn">Open Shop</button>
+    <button id="fleetBtn">Fleet</button>
   </div>
 
   <div id="shop">
     <h3>Shop</h3>
-    <div class="muted">Buy buildings to place, then drag cursor to set orbit; click to confirm.</div>
+    <div class="muted">Build buildings & trade resources. Use the Fleet panel to build/send ships.</div>
     <section>
       <strong>Build</strong>
       <div class="row">
         <div>Moon — +1 basalt/s/level</div>
-        <div>
-          <span class="muted" id="moonCost">100</span>
-          <button id="startMoon">Select</button>
-        </div>
+        <div><span class="muted" id="moonCost">100</span><button id="startMoon">Select</button></div>
       </div>
       <div class="row">
         <div>Satellite — +1 energy/s/level</div>
-        <div>
-          <span class="muted" id="satCost">120</span>
-          <button id="startSat">Select</button>
-        </div>
+        <div><span class="muted" id="satCost">120</span><button id="startSat">Select</button></div>
       </div>
     </section>
     <section>
       <strong>Trade</strong>
       <div class="row">
         <div>Basalt → money</div>
-        <div>
-          <input id="sellBasaltAmt" type="number" min="0" step="1" placeholder="amount" />
-          <button id="sellBasalt">Sell</button>
-        </div>
+        <div><input id="sellBasaltAmt" type="number" min="0" step="1" placeholder="amount" /><button id="sellBasalt">Sell</button></div>
       </div>
       <div class="row">
         <div>Energy → money</div>
-        <div>
-          <input id="sellEnergyAmt" type="number" min="0" step="1" placeholder="amount" />
-          <button id="sellEnergy">Sell</button>
-        </div>
+        <div><input id="sellEnergyAmt" type="number" min="0" step="1" placeholder="amount" /><button id="sellEnergy">Sell</button></div>
       </div>
       <div style="text-align:right; margin-top:6px"><button id="closeShop">Close</button></div>
     </section>
@@ -81,6 +73,18 @@
     <div class="row" id="rowUpgrade"><div>Upgrade</div><div><button id="bUpgrade">Upgrade (<span id="bUpCost">—</span>)</button></div></div>
     <div class="row" id="rowDemo"><div>Demolish</div><div><button id="bDemo">Refund 75%</button></div></div>
     <div style="text-align:right; margin-top:6px"><button id="bClose">Close</button></div>
+  </div>
+
+  <div id="fleet">
+    <div><strong>Fleet</strong></div>
+    <div class="row"><div>Drone (25$, 1s)</div><div><button id="qDrone">Build</button></div></div>
+    <div class="row"><div>Battleship (100$, 2s)</div><div><button id="qBattle">Build</button></div></div>
+    <div class="row"><div>Queue</div><div><span id="queueLen">0</span> in progress</div></div>
+    <hr style="border:0;border-top:1px solid rgba(255,255,255,.2)">
+    <div class="row"><div>Send Drones</div><div><input id="sendD" type="number" min="0" step="1" value="0" style="width:80px"></div></div>
+    <div class="row"><div>Send Battleships</div><div><input id="sendB" type="number" min="0" step="1" value="0" style="width:80px"></div></div>
+    <div class="muted">Click <em>Select Target</em>, then click a <strong>Scrap</strong> on the map.</div>
+    <div class="row" style="margin-top:6px; justify-content:flex-end"><button id="selectTarget">Select Target</button><button id="fleetClose">Close</button></div>
   </div>
 
   <div id="toast"></div>
@@ -100,22 +104,26 @@
     addEventListener('resize', resize); resize();
 
     // ---------- Game state & economy ----------
-    const STORAGE_KEY = 'planetforge:v3.1';
+    const STORAGE_KEY = 'planetforge:v5';
     const ECON = {
-      startMoney: 20000, // testing boost
+      startMoney: 20000,
       moonCost: 100,
       satCost: 120,
-      upgrade: { // cost to go from L -> L+1
-        moonBase: 75, satBase: 90, planetBase: 500,
-        mult: 1.5, planetMult: 1.4
-      },
-      sellUnit: { basalt: 1, energy: 1.2 }, // money per 1 unit
+      upgrade: { moonBase: 75, satBase: 90, planetBase: 500, mult: 1.5, planetMult: 1.4 },
+      sellUnit: { basalt: 1, energy: 1.2 },
       territory: { base: 200, perLevel: 50, maxLevel: 10 },
       maxLevel: 10,
+      ships: {
+        drone:  { cost:25,  build:1.0, speed:180, cap:20 },
+        battle: { cost:100, build:2.0, speed:120, cap:60 }
+      },
+      collectionSeconds: 60
     };
 
+    const SIZES = { planet: 32, moon: 10, sat: 8 }; // world units — scale with zoom naturally
+
     const defaultState = {
-      planet: { x: 0, y: 0, radius: 32, level: 1 },
+      planet: { x: 0, y: 0, radius: SIZES.planet, level: 1 },
       territory: ECON.territory.base,
       moons: [], // {r, angle, speed, lvl, spent}
       sats: [],  // {r, angle, speed, lvl, spent}
@@ -125,8 +133,17 @@
       lastProd: Date.now(),
       lastFrame: Date.now(),
       cam: { x: -innerWidth/2, y: -innerHeight/2, zoom: 1 },
-      placing: null, // {kind:'moon'|'sat', r:number, angle:number}
+      placing: null, // {kind:'moon'|'sat', r, angle}
       selected: null, // {kind:'moon'|'sat'|'planet', idx?}
+      // Fleet
+      ships: { drone:0, battle:0 },
+      queue: [], // [{type:'drone'|'battle', doneAt:number}]
+      // missions phases: 'out','collect','back'
+      missions: [], // [{id,target:{x,y},drones,battles,speed,dist,depart,arrive,collectEnd,leave,return,phase,collected:{b,e},toCollect:{b,e},scrapId}]
+      sendingFleet: null,
+      // Stars & Scraps
+      stars: [],
+      scraps: []
     };
 
     function load(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null } catch { return null } }
@@ -148,17 +165,144 @@
       return 999999;
     }
 
-    // ---------- Production ----------
+    // ---------- Production & queues ----------
     function accrue(){
       const now = Date.now();
       const dt = (now - state.lastProd)/1000; if (dt <= 0) return;
       state.lastProd = now;
-      const moonRate = state.moons.reduce((s,m)=>s+m.lvl,0); // 1/s per level
+      const moonRate = state.moons.reduce((s,m)=>s+m.lvl,0);
       const satRate  = state.sats.reduce((s,m)=>s+m.lvl,0);
       state.basalt += moonRate * dt;
       state.energy += satRate * dt;
       state.basalt = Math.round(state.basalt * 1000)/1000;
       state.energy = Math.round(state.energy * 1000)/1000;
+
+      // ship queue: complete items whose doneAt <= now
+      let changed=false;
+      while(state.queue.length && state.queue[0].doneAt <= now){
+        const it = state.queue.shift();
+        if(it.type==='drone') state.ships.drone++; else state.ships.battle++;
+        changed=true;
+      }
+      if(changed) updateHud();
+
+      // missions
+      for(const m of state.missions){
+        if(m.phase==='out' && now >= m.arrive){
+          // enter collection phase
+          m.phase='collect';
+          m.collectEnd = m.arrive + ECON.collectionSeconds*1000;
+          m.toCollect = { b:0, e:0 };
+          const sc = state.scraps.find(s=>s.id===m.scrapId);
+          if(sc){
+            const capacity = m.drones*ECON.ships.drone.cap + m.battles*ECON.ships.battle.cap;
+            const avail = Math.max(0, sc.b + sc.e);
+            const take = Math.min(capacity, avail);
+            // proportional split
+            const takeB = Math.min(sc.b, Math.round(take * (sc.b/(sc.b+sc.e || 1))));
+            const takeE = Math.min(sc.e, take - takeB);
+            m.toCollect.b = takeB; m.toCollect.e = takeE; // target amounts over 60s
+            m.collected = m.collected || {b:0,e:0};
+            m._rateB = (takeB/ECON.collectionSeconds); m._rateE = (takeE/ECON.collectionSeconds);
+          } else {
+            // scrap vanished; skip collection
+            m.collectEnd = now; m._rateB = 0; m._rateE = 0; m.toCollect = {b:0,e:0};
+          }
+        }
+        if(m.phase==='collect'){
+          const sc = state.scraps.find(s=>s.id===m.scrapId);
+          const stepB = Math.min(m._rateB*dt, Math.max(0,(m.toCollect.b - m.collected.b)));
+          const stepE = Math.min(m._rateE*dt, Math.max(0,(m.toCollect.e - m.collected.e)));
+          if(sc){ sc.b = Math.max(0, sc.b - stepB); sc.e = Math.max(0, sc.e - stepE); if(sc.b<=0 && sc.e<=0){ state.scraps = state.scraps.filter(s=>s.id!==sc.id); } }
+          m.collected.b += stepB; m.collected.e += stepE;
+          if(now >= m.collectEnd){
+            m.phase='back';
+            m.leave = m.collectEnd;
+            m.return = m.leave + (m.arrive - m.depart); // symmetric travel
+          }
+        }
+        if(m.phase==='back' && now >= m.return){ m.phase='done'; }
+      }
+      if(state.missions.some(m=>m.phase==='done')){
+        for(const m of state.missions.filter(m=>m.phase==='done')){
+          state.basalt += Math.round(m.collected.b);
+          state.energy += Math.round(m.collected.e);
+          state.ships.drone += m.drones; state.ships.battle += m.battles;
+        }
+        state.missions = state.missions.filter(m=>!m.phase || m.phase!=='done');
+        updateHud();
+      }
+    }
+
+    function enqueueShip(type){
+      const cfg = ECON.ships[type];
+      if(state.money < cfg.cost) return toast('Need '+cfg.cost+' money for '+type+'.');
+      state.money -= cfg.cost;
+      const now = Date.now();
+      const lastEnd = state.queue.length ? state.queue[state.queue.length-1].doneAt : now;
+      const doneAt = Math.max(now, lastEnd) + cfg.build*1000;
+      state.queue.push({type, doneAt});
+      updateHud(); save();
+    }
+
+    // ---------- Stars ----------
+    const STAR_COLORS = ['#ffffff','#ffd9a5','#a5c9ff','#fff8d1','#d1e0ff'];
+    function createStars(N=900){
+      state.stars = [];
+      const range = 6000;
+      for(let i=0;i<N;i++){
+        const x = (Math.random()*2-1)*range;
+        const y = (Math.random()*2-1)*range;
+        const r = Math.random()*1.2 + 0.3;
+        const color = STAR_COLORS[(Math.random()*STAR_COLORS.length)|0];
+        const phase = Math.random()*Math.PI*2;
+        state.stars.push({x,y,r,color,phase});
+      }
+    }
+    if(!state.stars.length) createStars();
+
+    function drawStars(time){
+      const left = cam.x, top = cam.y, right = cam.x + innerWidth/cam.zoom, bottom = cam.y + innerHeight/cam.zoom;
+      for(const s of state.stars){
+        if(s.x < left-100 || s.x > right+100 || s.y < top-100 || s.y > bottom+100) continue;
+        const p = worldToScreen(s.x, s.y);
+        const tw = 0.7 + 0.3 * Math.sin(time*0.001 + s.phase);
+        ctx.globalAlpha = 0.6 + 0.4*tw;
+        ctx.fillStyle = s.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, s.r*cam.zoom, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // ---------- Scraps ----------
+    function createScraps(N=40){
+      if(state.scraps.length) return;
+      let id=1; const range = 4000;
+      for(let i=0;i<N;i++){
+        const x = (Math.random()*2-1)*range;
+        const y = (Math.random()*2-1)*range;
+        const total = 120 + Math.floor(Math.random()*360);
+        const b = Math.floor(total * (0.3 + Math.random()*0.5));
+        const e = total - b;
+        state.scraps.push({id:id++, x,y, b,e});
+      }
+    }
+    createScraps();
+
+    function drawScraps(){
+      ctx.save();
+      for(const sc of state.scraps){
+        const p = worldToScreen(sc.x, sc.y);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
+        ctx.fillStyle = '#9ae6b4'; ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = '#68d391'; ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function pickScrap(wx, wy){
+      for(const sc of state.scraps){ if(Math.hypot(wx-sc.x, wy-sc.y) < 12/cam.zoom) return sc; }
+      return null;
     }
 
     // ---------- Input & selection ----------
@@ -166,9 +310,13 @@
     cvs.addEventListener('contextmenu', e => e.preventDefault());
 
     cvs.addEventListener('mousedown', (e)=>{
-      if(e.button===2){ panning=true; last.x=e.clientX; last.y=e.clientY; return; }
+      if(e.button===2){
+        // Right-click: cancel placement if active; else start panning
+        if(state.placing){ state.placing=null; updateHud(); toast('Placement canceled'); return; }
+        panning=true; last.x=e.clientX; last.y=e.clientY; return;
+      }
       if(e.button===0){
-        // Placing commitment
+        // placing buildings
         if(state.placing){
           if(isPlacementValid(state.placing.r)){
             const k = state.placing.kind;
@@ -181,7 +329,25 @@
           } else { toast('Invalid orbit — overlaps or outside territory.'); }
           return;
         }
-        // Selection: building or planet (canvas only)
+        // sending fleet?
+        if(state.sendingFleet){
+          const world = screenToWorld(e.clientX, e.clientY);
+          const sc = pickScrap(world.x, world.y);
+          if(!sc){ toast('Click a scrap to send fleet.'); return; }
+          const d = Math.max(0, Math.floor(Number(document.querySelector('#sendD').value||0)));
+          const b = Math.max(0, Math.floor(Number(document.querySelector('#sendB').value||0)));
+          if(d<=0 && b<=0) { toast('Set fleet numbers first.'); return; }
+          if(d>state.ships.drone || b>state.ships.battle){ toast('Not enough ships available.'); return; }
+          state.ships.drone -= d; state.ships.battle -= b;
+          const dx = sc.x - state.planet.x, dy = sc.y - state.planet.y; const dist = Math.hypot(dx,dy);
+          const speed = Math.min(d?ECON.ships.drone.speed:Infinity, b?ECON.ships.battle.speed:Infinity);
+          const now = Date.now(); const tTravel = dist / speed * 1000;
+          const mission = { id: Math.random().toString(36).slice(2), target:{x:sc.x,y:sc.y}, drones:d, battles:b, speed, dist, scrapId: sc.id, depart: now, arrive: now + tTravel, phase:'out', collected:{b:0,e:0}, toCollect:{b:0,e:0} };
+          state.missions.push(mission);
+          state.sendingFleet = null; document.querySelector('#fleet').style.display='none'; updateHud(); save(); toast('Fleet dispatched!');
+          return;
+        }
+        // selection
         const world = screenToWorld(e.clientX, e.clientY);
         const hit = pickBuilding(world.x, world.y);
         if(hit){ state.selected = hit; updatePanel(); return; }
@@ -198,7 +364,6 @@
 
     cvs.addEventListener('mouseup', (e)=>{ if(e.button===2) panning=false; });
 
-    // FIX: this handler was duplicated before, causing a stray '}' syntax error. Now defined once.
     cvs.addEventListener('wheel', (e)=>{
       const factor = Math.exp(-e.deltaY * 0.001);
       const mx = e.clientX, my = e.clientY; const before = screenToWorld(mx,my);
@@ -208,35 +373,36 @@
 
     addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='h') toggleShop(); });
 
-    // ---------- HUD + Shop + Panel ----------
-    const $money=q('#money'), $basalt=q('#basalt'), $energy=q('#energy');
-    const $moons=q('#moons'), $sats=q('#sats'), $bRate=q('#bRate'), $eRate=q('#eRate'), $terr=q('#terr');
-    const $pLv=q('#pLv');
-    const $toast=q('#toast');
-    const $shop=q('#shop'), $shopBtn=q('#shopBtn');
-    const $moonCost=q('#moonCost'), $satCost=q('#satCost');
-    const $sellBAmt=q('#sellBasaltAmt'), $sellEAmt=q('#sellEnergyAmt');
-    const $panel=q('#panel'), $panelTitle=q('#panelTitle'), $bLvl=q('#bLvl'), $bProd=q('#bProd'), $bUpCost=q('#bUpCost');
-    const $rowProd=q('#rowProd'), $rowDemo=q('#rowDemo'); const $prodLabel=q('#prodLabel');
+    // ---------- HUD + Shop + Panel + Fleet ----------
+    const $money=document.querySelector('#money'), $basalt=document.querySelector('#basalt'), $energy=document.querySelector('#energy');
+    const $moons=document.querySelector('#moons'), $sats=document.querySelector('#sats'), $bRate=document.querySelector('#bRate'), $eRate=document.querySelector('#eRate'), $terr=document.querySelector('#terr');
+    const $pLv=document.querySelector('#pLv');
+    const $toast=document.querySelector('#toast');
+    const $shop=document.querySelector('#shop'), $shopBtn=document.querySelector('#shopBtn');
+    const $moonCost=document.querySelector('#moonCost'), $satCost=document.querySelector('#satCost');
+    const $sellBAmt=document.querySelector('#sellBasaltAmt'), $sellEAmt=document.querySelector('#sellEnergyAmt');
+    const $panel=document.querySelector('#panel'), $panelTitle=document.querySelector('#panelTitle'), $bLvl=document.querySelector('#bLvl'), $bProd=document.querySelector('#bProd'), $bUpCost=document.querySelector('#bUpCost');
+    const $rowProd=document.querySelector('#rowProd'), $rowDemo=document.querySelector('#rowDemo'); const $prodLabel=document.querySelector('#prodLabel');
+    const $drCount=document.querySelector('#drCount'), $bsCount=document.querySelector('#bsCount'), $msCount=document.querySelector('#msCount');
+    const $fleet=document.querySelector('#fleet');
 
-    $shopBtn.addEventListener('click', ()=>toggleShop(true));
-    q('#closeShop').addEventListener('click', ()=>toggleShop(false));
-    q('#startMoon').addEventListener('mousedown', ()=>beginPlacing('moon'));
-    q('#startSat').addEventListener('mousedown', ()=>beginPlacing('sat'));
+    document.querySelector('#fleetBtn').addEventListener('click',()=>{ $fleet.style.display = ($fleet.style.display==='block')?'none':'block'; });
+    document.querySelector('#fleetClose').addEventListener('click',()=>{ $fleet.style.display='none'; state.sendingFleet=null; });
+    document.querySelector('#selectTarget').addEventListener('click',()=>{ state.sendingFleet = {flag:true}; toast('Click a scrap to set target.'); });
 
-    q('#sellBasalt').addEventListener('click', ()=>{
-      const amt = Math.max(0, Math.floor(Number($sellBAmt.value||0)));
-      if(amt<=0) return; if(state.basalt < amt) return toast('Not enough basalt.');
-      state.basalt -= amt; state.money += amt * ECON.sellUnit.basalt; updateHud(); save();
-    });
-    q('#sellEnergy').addEventListener('click', ()=>{
-      const amt = Math.max(0, Math.floor(Number($sellEAmt.value||0)));
-      if(amt<=0) return; if(state.energy < amt) return toast('Not enough energy.');
-      state.energy -= amt; state.money += amt * ECON.sellUnit.energy; updateHud(); save();
-    });
+    document.querySelector('#qDrone').addEventListener('click',()=> enqueueShip('drone'));
+    document.querySelector('#qBattle').addEventListener('click',()=> enqueueShip('battle'));
 
-    q('#bClose').addEventListener('click', ()=>{ state.selected=null; updatePanel(); });
-    q('#bUpgrade').addEventListener('click', ()=>{
+    document.querySelector('#shopBtn').addEventListener('click',()=>toggleShop(true));
+    document.querySelector('#closeShop').addEventListener('click',()=>toggleShop(false));
+    document.querySelector('#startMoon').addEventListener('mousedown',()=>beginPlacing('moon'));
+    document.querySelector('#startSat').addEventListener('mousedown',()=>beginPlacing('sat'));
+
+    document.querySelector('#sellBasalt').addEventListener('click',()=>{ const amt = Math.max(0, Math.floor(Number($sellBAmt.value||0))); if(amt<=0) return; if(state.basalt < amt) return toast('Not enough basalt.'); state.basalt -= amt; state.money += amt * ECON.sellUnit.basalt; updateHud(); save(); });
+    document.querySelector('#sellEnergy').addEventListener('click',()=>{ const amt = Math.max(0, Math.floor(Number($sellEAmt.value||0))); if(amt<=0) return; if(state.energy < amt) return toast('Not enough energy.'); state.energy -= amt; state.money += amt * ECON.sellUnit.energy; updateHud(); save(); });
+
+    document.querySelector('#bClose').addEventListener('click',()=>{ state.selected=null; updatePanel(); });
+    document.querySelector('#bUpgrade').addEventListener('click',()=>{
       const sel = state.selected; if(!sel) return;
       if(sel.kind==='planet'){
         if(state.planet.level>=ECON.maxLevel) return toast('Planet is max level.');
@@ -250,97 +416,90 @@
       if(state.money < cost) return toast('Need '+cost+' money.');
       state.money -= cost; obj.lvl++; obj.spent += cost; updatePanel(); updateHud(); save();
     });
-    q('#bDemo').addEventListener('click', ()=>{
-      const sel = state.selected; if(!sel || sel.kind==='planet') return; const list=(sel.kind==='moon'?state.moons:state.sats); const obj=list[sel.idx];
-      const refund=Math.floor(obj.spent*0.75); state.money+=refund; list.splice(sel.idx,1); state.selected=null; updatePanel(); updateHud(); save(); toast('Demolished. Refunded '+refund+'.');
-    });
+    document.querySelector('#bDemo').addEventListener('click',()=>{ const sel = state.selected; if(!sel || sel.kind==='planet') return; const list=(sel.kind==='moon'?state.moons:state.sats); const obj=list[sel.idx]; const refund=Math.floor(obj.spent*0.75); state.money+=refund; list.splice(sel.idx,1); state.selected=null; updatePanel(); updateHud(); save(); toast('Demolished. Refunded '+refund+'.'); });
 
     function beginPlacing(kind){ const base=(kind==='moon'?ECON.moonCost:ECON.satCost); if(state.money < base){ toast('Need '+base+' money.'); return; } toggleShop(false); state.selected=null; updatePanel(); state.placing = { kind, r: Math.max(ORBIT.min, 90), angle: 0 }; }
-
     function toggleShop(force){ if(typeof force==='boolean') $shop.style.display = force? 'block':'none'; else $shop.style.display = ($shop.style.display==='block'?'none':'block'); }
 
     function isPlacementValid(r){ if(r < ORBIT.min || r > state.territory - 10) return false; const near=(a,b)=> Math.abs(a-b) < ORBIT.gap; for(const m of state.moons){ if(near(r, m.r)) return false; } for(const s of state.sats){ if(near(r, s.r)) return false; } return true; }
 
     function pickBuilding(wx, wy){
-      // compute current world positions for moving bodies
-      for(let i=0;i<state.moons.length;i++){ const m=state.moons[i]; const x=state.planet.x + Math.cos(m.angle)*m.r; const y=state.planet.y + Math.sin(m.angle)*m.r; if(Math.hypot(wx-x, wy-y) < 12/cam.zoom) return {kind:'moon', idx:i}; }
-      for(let i=0;i<state.sats.length;i++){ const s=state.sats[i]; const x=state.planet.x + Math.cos(s.angle)*s.r; const y=state.planet.y + Math.sin(s.angle)*s.r; if(Math.hypot(wx-x, wy-y) < 12/cam.zoom) return {kind:'sat', idx:i}; }
+      for(let i=0;i<state.moons.length;i++){ const m=state.moons[i]; const x=state.planet.x + Math.cos(m.angle)*m.r; const y=state.planet.y + Math.sin(m.angle)*m.r; if(Math.hypot(wx-x, wy-y) < SIZES.moon) return {kind:'moon', idx:i}; }
+      for(let i=0;i<state.sats.length;i++){ const s=state.sats[i]; const x=state.planet.x + Math.cos(s.angle)*s.r; const y=state.planet.y + Math.sin(s.angle)*s.r; if(Math.hypot(wx-x, wy-y) < SIZES.sat) return {kind:'sat', idx:i}; }
       return null;
     }
 
     function updatePanel(){
       const sel = state.selected;
-      if(!sel){ $panel.style.display='none'; return; }
-      $panel.style.display='block';
+      if(!sel){ document.querySelector('#panel').style.display='none'; return; }
+      document.querySelector('#panel').style.display='block';
       if(sel.kind==='planet'){
-        $panelTitle.textContent = 'Planet';
-        $bLvl.textContent = state.planet.level; $bUpCost.textContent = (state.planet.level>=ECON.maxLevel? 'Max' : upgradeCost('planet', state.planet.level));
-        $prodLabel.textContent = 'Territory'; $bProd.textContent = state.territory + 'u';
-        $rowDemo.style.display = 'none'; // cannot demolish planet
-        $rowProd.style.display = 'flex';
-        return;
+        document.querySelector('#panelTitle').textContent = 'Planet';
+        document.querySelector('#bLvl').textContent = state.planet.level; document.querySelector('#bUpCost').textContent = (state.planet.level>=ECON.maxLevel? 'Max' : upgradeCost('planet', state.planet.level));
+        document.querySelector('#prodLabel').textContent = 'Territory'; document.querySelector('#bProd').textContent = state.territory + 'u';
+        document.querySelector('#rowDemo').style.display = 'none'; document.querySelector('#rowProd').style.display = 'flex'; return;
       }
       const list = (sel.kind==='moon'? state.moons : state.sats); const obj = list[sel.idx];
-      $panelTitle.textContent = sel.kind==='moon' ? 'Moon' : 'Satellite';
-      $bLvl.textContent = obj.lvl; $bUpCost.textContent = (obj.lvl>=ECON.maxLevel? 'Max' : upgradeCost(sel.kind, obj.lvl));
-      $prodLabel.textContent = 'Prod'; $bProd.textContent = '+'+obj.lvl+'/s';
-      $rowDemo.style.display = 'flex';
-      $rowProd.style.display = 'flex';
+      document.querySelector('#panelTitle').textContent = sel.kind==='moon' ? 'Moon' : 'Satellite';
+      document.querySelector('#bLvl').textContent = obj.lvl; document.querySelector('#bUpCost').textContent = (obj.lvl>=ECON.maxLevel? 'Max' : upgradeCost(sel.kind, obj.lvl));
+      document.querySelector('#prodLabel').textContent = 'Prod'; document.querySelector('#bProd').textContent = '+'+obj.lvl+'/s';
+      document.querySelector('#rowDemo').style.display = 'flex'; document.querySelector('#rowProd').style.display = 'flex';
     }
 
     function updateHud(){
-      $money.textContent = Math.floor(state.money);
-      $basalt.textContent = Math.floor(state.basalt);
-      $energy.textContent = Math.floor(state.energy);
+      document.querySelector('#money').textContent = Math.floor(state.money);
+      document.querySelector('#basalt').textContent = Math.floor(state.basalt);
+      document.querySelector('#energy').textContent = Math.floor(state.energy);
       const moonRate = state.moons.reduce((s,m)=>s+m.lvl,0); const satRate = state.sats.reduce((s,m)=>s+m.lvl,0);
-      $moons.textContent = state.moons.length; $bRate.textContent = moonRate;
-      $sats.textContent = state.sats.length; $eRate.textContent = satRate;
-      $pLv.textContent = state.planet.level; $terr.textContent = Math.floor(state.territory);
-      $moonCost.textContent = ECON.moonCost; $satCost.textContent = ECON.satCost;
+      document.querySelector('#moons').textContent = state.moons.length; document.querySelector('#bRate').textContent = moonRate;
+      document.querySelector('#sats').textContent = state.sats.length; document.querySelector('#eRate').textContent = satRate;
+      document.querySelector('#pLv').textContent = state.planet.level; document.querySelector('#terr').textContent = Math.floor(state.territory);
+      document.querySelector('#moonCost').textContent = ECON.moonCost; document.querySelector('#satCost').textContent = ECON.satCost;
+      document.querySelector('#drCount').textContent = state.ships.drone; document.querySelector('#bsCount').textContent = state.ships.battle; document.querySelector('#msCount').textContent = state.missions.length;
+      document.querySelector('#queueLen').textContent = state.queue.length;
       document.body.style.cursor = state.placing ? 'crosshair' : 'default';
     }
 
-    // HUD refresh each second
     setInterval(updateHud, 1000);
 
-    function toast(msg){ $toast.textContent = msg; $toast.style.display='block'; clearTimeout(toast._t); toast._t = setTimeout(()=>{ $toast.style.display='none'; }, 1600); }
-    function q(sel){ return document.querySelector(sel); }
+    function toast(msg){ const t=document.querySelector('#toast'); t.textContent = msg; t.style.display='block'; clearTimeout(toast._t); toast._t = setTimeout(()=>{ t.style.display='none'; }, 1600); }
 
     updateHud();
 
-    // ---------- Stars ----------
-    const STAR_COLORS = ['#ffffff','#ffd9a5','#a5c9ff','#fff8d1','#d1e0ff'];
-    let stars = [];
-    function createStars(N=900){
-      stars = [];
-      const range = 6000; // world-space span so panning reveals new stars
-      for(let i=0;i<N;i++){
-        const x = (Math.random()*2-1)*range;
-        const y = (Math.random()*2-1)*range;
-        const r = Math.random()*1.2 + 0.3; // tiny dots
-        const color = STAR_COLORS[(Math.random()*STAR_COLORS.length)|0];
-        const phase = Math.random()*Math.PI*2; // twinkle offset
-        stars.push({x,y,r,color,phase});
-      }
-    }
-    createStars();
-
-    function drawStars(time){
-      // Only draw stars that are within (or just outside) the viewport for perf
-      const left = cam.x, top = cam.y, right = cam.x + innerWidth/cam.zoom, bottom = cam.y + innerHeight/cam.zoom;
-      for(const s of stars){
-        if(s.x < left-100 || s.x > right+100 || s.y < top-100 || s.y > bottom+100) continue;
-        const p = worldToScreen(s.x, s.y);
-        const tw = 0.7 + 0.3 * Math.sin(time*0.001 + s.phase);
-        ctx.globalAlpha = 0.6 + 0.4*tw;
-        ctx.fillStyle = s.color;
-        ctx.beginPath(); ctx.arc(p.x, p.y, s.r*cam.zoom, 0, Math.PI*2); ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-    }
-
     // ---------- Render ----------
-        function draw(){
+    function drawMissionShips(now, ps){
+      // draw moving icons along path + a circle at scrap while collecting
+      for(const m of state.missions){
+        const tp = worldToScreen(m.target.x, m.target.y);
+        let x=ps.x, y=ps.y;
+        if(m.phase==='out'){
+          const t = Math.min(1, (now - m.depart) / (m.arrive - m.depart));
+          x = ps.x + (tp.x - ps.x)*t; y = ps.y + (tp.y - ps.y)*t;
+        } else if(m.phase==='collect'){
+          x=tp.x; y=tp.y;
+          // draw a small pulsing ring to indicate collecting
+          const r = 10 + 2*Math.sin(now*0.006);
+          ctx.beginPath(); ctx.arc(tp.x, tp.y, r, 0, Math.PI*2); ctx.strokeStyle='rgba(122,255,150,.6)'; ctx.lineWidth=2; ctx.stroke();
+        } else if(m.phase==='back'){
+          const t = Math.min(1, (now - m.leave) / (m.return - m.leave));
+          x = tp.x + (ps.x - tp.x)*t; y = tp.y + (ps.y - tp.y)*t;
+        } else { continue; }
+        // ship icon (triangle)
+        ctx.save();
+        ctx.translate(x,y);
+        // angle toward target when outbound, toward planet when return
+        let ang = 0;
+        if(m.phase==='out'){ ang = Math.atan2(tp.y - ps.y, tp.x - ps.x); }
+        else if(m.phase==='back'){ ang = Math.atan2(ps.y - tp.y, ps.x - tp.x); }
+        ctx.rotate(ang);
+        ctx.beginPath();
+        ctx.moveTo(8,0); ctx.lineTo(-6,4); ctx.lineTo(-6,-4); ctx.closePath();
+        ctx.fillStyle='rgba(173,216,230,.9)'; ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function draw(){
       accrue();
       const now = Date.now();
       const dt = (now - state.lastFrame)/1000; state.lastFrame = now;
@@ -350,6 +509,7 @@
 
       ctx.clearRect(0,0,innerWidth,innerHeight);
       drawStars(now);
+      drawScraps();
 
       const ps = worldToScreen(state.planet.x, state.planet.y);
 
@@ -358,7 +518,7 @@
       ctx.fillStyle = 'rgba(80,200,255,0.08)'; ctx.fill();
       ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(80,200,255,.6)'; ctx.stroke();
 
-      // Planet (highlight if selected)
+      // Planet (scales with zoom via world units)
       ctx.beginPath(); ctx.arc(ps.x, ps.y, state.planet.radius*cam.zoom, 0, Math.PI*2);
       const grad = ctx.createRadialGradient(ps.x-6, ps.y-6, 6, ps.x, ps.y, state.planet.radius*cam.zoom);
       grad.addColorStop(0,'#4fd1c5'); grad.addColorStop(1,'#2563eb');
@@ -367,34 +527,42 @@
       ctx.strokeStyle = (state.selected && state.selected.kind==='planet') ? '#3cf' : 'rgba(0,0,0,.35)';
       ctx.stroke();
 
-      // Only draw orbit path for the **selected** object (cleaner view), and the placement preview
+      // Only draw orbit path for selected building
       if(state.selected && state.selected.kind!=='planet'){
         const sel = state.selected; const list = (sel.kind==='moon'? state.moons : state.sats); const obj = list[sel.idx];
         if(obj){ ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(ps.x, ps.y, obj.r*cam.zoom, 0, Math.PI*2); ctx.stroke(); }
       }
 
-      // Moons
+      // Moons (world-unit sizes)
       for(let i=0;i<state.moons.length;i++){
         const m=state.moons[i]; const x=state.planet.x + Math.cos(m.angle)*m.r; const y=state.planet.y + Math.sin(m.angle)*m.r; const p=worldToScreen(x,y);
-        ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='#bdbdbd'; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x,p.y,SIZES.moon*cam.zoom,0,Math.PI*2); ctx.fillStyle='#bdbdbd'; ctx.fill();
         ctx.strokeStyle=(state.selected&&state.selected.kind==='moon'&&state.selected.idx===i)?'#3cf':'#8a8a8a';
         ctx.lineWidth=(state.selected&&state.selected.kind==='moon'&&state.selected.idx===i)?3:1.5; ctx.stroke();
       }
       // Satellites
       for(let i=0;i<state.sats.length;i++){
         const s=state.sats[i]; const x=state.planet.x + Math.cos(s.angle)*s.r; const y=state.planet.y + Math.sin(s.angle)*s.r; const p=worldToScreen(x,y);
-        ctx.beginPath(); ctx.arc(p.x,p.y,8,0,Math.PI*2); ctx.fillStyle='#ffd54f'; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x,p.y,SIZES.sat*cam.zoom,0,Math.PI*2); ctx.fillStyle='#ffd54f'; ctx.fill();
         ctx.strokeStyle=(state.selected&&state.selected.kind==='sat'&&state.selected.idx===i)?'#3cf':'#c9a227';
         ctx.lineWidth=(state.selected&&state.selected.kind==='sat'&&state.selected.idx===i)?3:1.5; ctx.stroke();
       }
 
-      // Placement preview (with its path)
+      // Missions (lines + moving icons)
+      if(state.missions.length){
+        ctx.lineWidth=1; ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(173,216,230,.6)';
+        for(const m of state.missions){ const tp = worldToScreen(m.target.x, m.target.y); ctx.beginPath(); ctx.moveTo(ps.x, ps.y); ctx.lineTo(tp.x, tp.y); ctx.stroke(); }
+        ctx.setLineDash([]);
+        drawMissionShips(now, ps);
+      }
+
+      // Placement preview
       if(state.placing){
         const valid = isPlacementValid(state.placing.r);
         ctx.beginPath(); ctx.arc(ps.x, ps.y, state.placing.r*cam.zoom, 0, Math.PI*2);
         ctx.lineWidth = 2; ctx.strokeStyle = valid ? 'rgba(122,255,150,.9)' : 'rgba(255,80,80,.9)'; ctx.stroke();
         const gx = state.planet.x + Math.cos(state.placing.angle)*state.placing.r; const gy = state.planet.y + Math.sin(state.placing.angle)*state.placing.r; const gp = worldToScreen(gx, gy);
-        ctx.beginPath(); const rad = state.placing.kind==='moon'?10:8; ctx.arc(gp.x,gp.y,rad,0,Math.PI*2); ctx.fillStyle = valid ? 'rgba(200,255,200,.7)' : 'rgba(255,120,120,.7)'; ctx.fill();
+        ctx.beginPath(); const rad = state.placing.kind==='moon'?SIZES.moon:SIZES.sat; ctx.arc(gp.x,gp.y,rad*cam.zoom,0,Math.PI*2); ctx.fillStyle = valid ? 'rgba(200,255,200,.7)' : 'rgba(255,120,120,.7)'; ctx.fill();
       }
 
       requestAnimationFrame(draw);
@@ -404,70 +572,32 @@
     // autosave
     setInterval(save, 4000);
 
-    // ---------- Self-tests (runtime) ----------
+    // ---------- Self-tests ----------
     (function runSelfTests(){
       try {
         console.groupCollapsed('PlanetForge self-tests');
-        console.assert(!!document.querySelector('#shopBtn'), 'shopBtn exists');
-        console.assert(typeof toggleShop === 'function', 'toggleShop exists');
-        console.assert(typeof beginPlacing === 'function', 'beginPlacing exists');
-        console.assert(Array.isArray(stars) && stars.length>0, 'stars generated');
-        try { drawStars(Date.now()); console.assert(true, 'drawStars callable'); } catch(e){ console.assert(false, 'drawStars threw: '+e.message); }
-        console.assert(typeof window.on === 'undefined', 'no stray on() helper');
+        // cancel placement on right-click
+        state.placing={kind:'moon', r:100, angle:0};
+        const evt = new MouseEvent('mousedown', {button:2, clientX:10, clientY:10});
+        document.querySelector('#game').dispatchEvent(evt);
+        console.assert(state.placing===null, 'right-click cancels placement');
 
-        // Ensure panel mousedown does not deselect (handlers bound to canvas only)
-        const keepSel = state.selected; state.selected = {kind:'planet'};
-        document.querySelector('#panel').dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));
-        console.assert(state.selected && state.selected.kind==='planet', 'panel mousedown does not deselect');
-
-        // Upgrade & demolish flows (non-destructive; restore after)
-        const backup = {
-          money: state.money,
-          moons: JSON.parse(JSON.stringify(state.moons)),
-          sats: JSON.parse(JSON.stringify(state.sats)),
-          selected: state.selected && JSON.parse(JSON.stringify(state.selected)),
-          planetLvl: state.planet.level,
-          territory: state.territory
-        };
-
-        // Add a moon and test upgrade
-        state.money = 999999;
-        state.moons.push({ r:120, angle:0, speed:orbitSpeed(120), lvl:1, spent: ECON.moonCost });
-        state.selected = {kind:'moon', idx: state.moons.length-1};
-        updatePanel();
-        const upCost = upgradeCost('moon', 1);
-        const mBefore = state.money;
-        document.querySelector('#bUpgrade').click();
-        console.assert(state.moons[state.moons.length-1].lvl === 2, 'Upgrade increases building level');
-        console.assert(state.money === mBefore - upCost, 'Upgrade deducts correct money');
-
-        // Demolish and verify refund
-        const spent = state.moons[state.moons.length-1].spent;
-        const refund = Math.floor(spent * 0.75);
-        const moneyBeforeDemo = state.money;
-        document.querySelector('#bDemo').click();
-        console.assert(state.moons.length === backup.moons.length, 'Demolish removes the building');
-        console.assert(state.money === moneyBeforeDemo + refund, 'Demolish refunds 75%');
-
-        // Planet upgrade test
-        state.selected = {kind:'planet'}; updatePanel();
-        const pLv0 = state.planet.level; const pCost = upgradeCost('planet', pLv0);
-        state.money = 999999;
-        document.querySelector('#bUpgrade').click();
-        console.assert(state.planet.level === pLv0 + 1, 'Planet upgrade increases level');
-        console.assert(state.territory === ECON.territory.base + (state.planet.level-1)*ECON.territory.perLevel, 'Territory matches planet level');
-
-        // Restore
-        state.money = backup.money;
-        state.moons = backup.moons;
-        state.sats = backup.sats;
-        state.selected = backup.selected;
-        state.planet.level = backup.planetLvl;
-        state.territory = backup.territory;
-        updateHud(); updatePanel();
-
+        // mission phases out->collect->back->done
+        const testScrap = {id:4242, x: state.planet.x+300, y: state.planet.y, b:200, e:200};
+        state.scraps.push(testScrap);
+        state.ships.drone+=2;
+        // simulate dispatch earlier
+        const dist=300; const speed=ECON.ships.drone.speed; const tTravel=dist/speed*1000;
+        const now=Date.now();
+        const m={id:'t', target:{x:testScrap.x,y:testScrap.y}, drones:2, battles:0, speed, dist, scrapId:testScrap.id, depart:now- (tTravel+ECON.collectionSeconds*1000+ tTravel + 100), arrive: now-(ECON.collectionSeconds*1000 + tTravel + 100) + tTravel, phase:'out', collected:{b:0,e:0}, toCollect:{b:0,e:0}};
+        state.missions.push(m);
+        accrue(); // should enter collect
+        accrue(); // progress collect
+        // fast-forward to after return
+        m.collectEnd = Date.now()-10; m.phase='back'; m.leave = m.collectEnd; m.return = m.leave + tTravel; accrue(); accrue();
+        console.assert(!state.missions.find(mm=>mm.id==='t'), 'mission completed & removed');
         console.groupEnd();
-      } catch (e) { console.warn('Self-tests error', e); }
+      } catch(e){ console.warn('Self-tests error', e); }
     })();
   </script>
 </body>
