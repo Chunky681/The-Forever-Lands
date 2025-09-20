@@ -3,16 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PlanetForge — ultra‑minimal MVP</title>
+  <title>PlanetForge — orbit MVP</title>
   <style>
     html, body { margin:0; height:100%; overflow:hidden; font-family: system-ui, sans-serif; }
     canvas { display:block; width:100vw; height:100vh; background: radial-gradient(circle at 50% 50%, #0b1220, #050910 60%, #03060b); }
     #hud { position: fixed; left: 12px; top: 12px; background: rgba(0,0,0,.6); color: #fff; padding: 10px 12px; border-radius: 12px; font-size: 14px; line-height: 1.35; }
     #hud button { margin-top: 6px; padding: 6px 10px; border: 0; border-radius: 8px; cursor: pointer; }
-    #toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: rgba(0,0,0,.75); color:#fff; padding:10px 14px; border-radius: 10px; font-size: 14px; display:none; }
-    #shop { position: fixed; right: 12px; top: 12px; background: rgba(0,0,0,.65); color:#fff; padding: 12px; border-radius: 12px; font-size: 14px; width: 260px; display:none; }
+    #toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: rgba(0,0,0,.8); color:#fff; padding:10px 14px; border-radius: 10px; font-size: 14px; display:none; }
+    #shop { position: fixed; right: 12px; top: 12px; background: rgba(0,0,0,.65); color:#fff; padding: 12px; border-radius: 12px; font-size: 14px; width: 300px; display:none; }
     #shop h3 { margin: 0 0 8px 0; font-size: 16px; }
-    #shop button { width: 100%; margin-top: 8px; padding: 8px 10px; border:0; border-radius:10px; cursor:pointer; }
+    #shop section { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.1); }
+    #shop .row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0; }
+    #shop button { margin: 0; padding: 6px 10px; border:0; border-radius:10px; cursor:pointer; }
     .muted { opacity:.75 }
     .kbd { background:#222; padding:2px 6px; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   </style>
@@ -25,26 +27,57 @@
     <div>Basalt: <span id="basalt">0</span> • Energy: <span id="energy">0</span></div>
     <div>Moons: <span id="moons">0</span> (+<span id="bRate">0</span>/s) • Satellites: <span id="sats">0</span> (+<span id="eRate">0</span>/s)</div>
     <div>Territory: <span id="terr">200</span>u radius</div>
-    <div class="muted" style="margin-top:4px">L‑click: place while in build mode • R‑drag: pan • Wheel: zoom • <span class="kbd">M</span> place Moon • <span class="kbd">S</span> place Satellite • <span class="kbd">H</span> shop</div>
-    <button id="moonBtn">Build Moon</button>
-    <button id="satBtn">Build Satellite</button>
+    <div class="muted" style="margin-top:4px">R‑drag: pan • Wheel: zoom • <span class="kbd">H</span> shop • Select in shop then <strong>drag to place</strong></div>
     <button id="shopBtn">Open Shop</button>
   </div>
+
   <div id="shop">
     <h3>Shop</h3>
-    <div class="muted">Buy territory and trade resources</div>
-    <div style="margin-top:8px"><strong>Prices</strong></div>
-    <ul style="margin:6px 0 8px 18px; padding:0">
-      <li>Moon: <span id="moonCost">100</span> money (produces 1 basalt/s)</li>
-      <li>Satellite: <span id="satCost">120</span> money (produces 1 energy/s)</li>
-      <li>Expand territory +50u: <span id="expCost">250</span> money</li>
-    </ul>
-    <button id="buyExpand">Buy +50u Territory</button>
-    <div style="margin-top:8px"><strong>Exchange</strong> (sell → money)</div>
-    <button id="sellBasalt">Sell 50 Basalt (+<span id="sellB">50</span> money)</button>
-    <button id="sellEnergy">Sell 50 Energy (+<span id="sellE">60</span> money)</button>
-    <button id="closeShop" style="margin-top:10px">Close</button>
+    <div class="muted">Buy buildings to place, or sell resources.</div>
+    <section>
+      <strong>Build</strong>
+      <div class="row">
+        <div>Moon — +1 basalt/s</div>
+        <div>
+          <span class="muted" id="moonCost">100</span>
+          <button id="startMoon">Select</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>Satellite — +1 energy/s</div>
+        <div>
+          <span class="muted" id="satCost">120</span>
+          <button id="startSat">Select</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>Expand Territory +50u</div>
+        <div>
+          <span class="muted" id="expCost">250</span>
+          <button id="buyExpand">Buy</button>
+        </div>
+      </div>
+    </section>
+    <section>
+      <strong>Trade</strong>
+      <div class="row">
+        <div>Sell 50 Basalt</div>
+        <div>
+          <span class="muted" id="sellB">50</span>
+          <button id="sellBasalt">Sell</button>
+        </div>
+      </div>
+      <div class="row">
+        <div>Sell 50 Energy</div>
+        <div>
+          <span class="muted" id="sellE">60</span>
+          <button id="sellEnergy">Sell</button>
+        </div>
+      </div>
+      <div style="text-align:right; margin-top:6px"><button id="closeShop">Close</button></div>
+    </section>
   </div>
+
   <div id="toast"></div>
 
   <script>
@@ -62,34 +95,33 @@
     addEventListener('resize', resize); resize();
 
     // ---------- Game state & economy ----------
-    const STORAGE_KEY = 'planetforge:v1';
+    const STORAGE_KEY = 'planetforge:v2';
     const ECON = {
       startMoney: 500,
       moonCost: 100,
       satCost: 120,
-      expandBaseCost: 250, // scales
-      expandScale: 1.18,   // each purchase multiplies next price
+      expandBaseCost: 250,
+      expandScale: 1.18,
       expandAmount: 50,
-      sell: { basalt: 50, energy: 60 }, // per 50 units
+      sell: { basalt: 50, energy: 60 },
     };
 
     const defaultState = {
       planet: { x: 0, y: 0, radius: 32 },
       territory: 200,
-      moons: [],    // {x,y}
-      sats: [],     // {x,y}
+      moons: [], // {r, angle, speed}
+      sats: [],  // {r, angle, speed}
       money: ECON.startMoney,
       basalt: 0,
       energy: 0,
-      lastTick: Date.now(),
+      lastProd: Date.now(), // for production
+      lastFrame: Date.now(), // for animation dt
       cam: { x: -innerWidth/2, y: -innerHeight/2, zoom: 1 },
-      buildMode: null, // 'moon' | 'sat'
+      placing: null, // {kind:'moon'|'sat', r:number, angle:number}
       expandCost: ECON.expandBaseCost,
     };
 
-    function load(){
-      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null } catch { return null }
-    }
+    function load(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null } catch { return null } }
     function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     let state = load() || structuredClone(defaultState);
 
@@ -98,46 +130,58 @@
     const screenToWorld = (sx, sy) => ({ x: sx/cam.zoom + cam.x, y: sy/cam.zoom + cam.y });
     const worldToScreen = (wx, wy) => ({ x: (wx - cam.x)*cam.zoom, y:(wy - cam.y)*cam.zoom });
 
-    // ---------- Production (serverless MVP; client clock) ----------
+    const ORBIT = { min: 60, // must be outside planet
+                    gap: 24, // clearance between orbital paths
+                    speedBase: 0.35 // radians/sec at radius=100 (scales inversely with r)
+                  };
+
+    function orbitSpeed(r){ return ORBIT.speedBase * (100 / Math.max(50, r)); }
+
+    // ---------- Production (client MVP) ----------
     function accrue(){
       const now = Date.now();
-      const dt = (now - state.lastTick) / 1000; // seconds
-      if (dt <= 0) return;
-      state.lastTick = now;
-      state.basalt += state.moons.length * dt;    // 1/s per moon
-      state.energy += state.sats.length * dt;     // 1/s per sat
-      // clamp to a few decimal places to avoid float spam
-      state.basalt = Math.round(state.basalt * 1000) / 1000;
-      state.energy = Math.round(state.energy * 1000) / 1000;
+      const dt = (now - state.lastProd)/1000; if (dt <= 0) return;
+      state.lastProd = now;
+      state.basalt += state.moons.length * dt;
+      state.energy += state.sats.length * dt;
+      state.basalt = Math.round(state.basalt * 1000)/1000;
+      state.energy = Math.round(state.energy * 1000)/1000;
     }
 
-    // ---------- Input ----------
-    let panning = false, last = {x:0,y:0};
+    // ---------- Input & placing ----------
+    let panning=false, last={x:0,y:0};
     cvs.addEventListener('contextmenu', e => e.preventDefault());
-    cvs.addEventListener('mousedown', (e)=>{
-      if(e.button===2){ panning = true; last.x=e.clientX; last.y=e.clientY; return; }
-      if(e.button===0){
-        const pos = screenToWorld(e.clientX, e.clientY);
-        const dist = Math.hypot(pos.x - state.planet.x, pos.y - state.planet.y);
-        if(state.buildMode){
-          if(dist > state.territory){ return toast('Place inside your territory.'); }
-          if(state.buildMode==='moon'){
-            if(state.money < ECON.moonCost) return toast('Not enough money for a Moon.');
-            state.money -= ECON.moonCost; state.moons.push({x:pos.x, y:pos.y});
-            toast('Moon built. +1 basalt/s');
-          } else if(state.buildMode==='sat'){
-            if(state.money < ECON.satCost) return toast('Not enough money for a Satellite.');
-            state.money -= ECON.satCost; state.sats.push({x:pos.x, y:pos.y});
-            toast('Satellite deployed. +1 energy/s');
-          }
-          state.buildMode = null; updateHud(); save();
+
+    addEventListener('mousedown', (e)=>{
+      if(e.button===2){ panning=true; last.x=e.clientX; last.y=e.clientY; return; }
+      // left click: if placing and valid -> commit
+      if(e.button===0 && state.placing){
+        if(isPlacementValid(state.placing.r)){
+          const k = state.placing.kind;
+          const cost = (k==='moon'? ECON.moonCost : ECON.satCost);
+          if(state.money < cost) { toast('Not enough money.'); return; }
+          state.money -= cost;
+          const obj = { r: state.placing.r, angle: state.placing.angle, speed: orbitSpeed(state.placing.r) };
+          if(k==='moon') state.moons.push(obj); else state.sats.push(obj);
+          state.placing = null; updateHud(); save();
+        } else {
+          toast('Invalid orbit — overlaps another path or outside territory.');
         }
       }
     });
+
     addEventListener('mousemove', (e)=>{
-      if(panning){ const dx=(e.clientX-last.x)/cam.zoom, dy=(e.clientY-last.y)/cam.zoom; cam.x-=dx; cam.y-=dy; last.x=e.clientX; last.y=e.clientY; }
+      if(panning){ const dx=(e.clientX-last.x)/cam.zoom, dy=(e.clientY-last.y)/cam.zoom; cam.x-=dx; cam.y-=dy; last.x=e.clientX; last.y=e.clientY; return; }
+      if(state.placing){
+        const w = screenToWorld(e.clientX, e.clientY);
+        const dx = w.x - state.planet.x, dy = w.y - state.planet.y;
+        state.placing.r = Math.hypot(dx, dy);
+        state.placing.angle = Math.atan2(dy, dx);
+      }
     });
+
     addEventListener('mouseup', (e)=>{ if(e.button===2) panning=false; });
+
     addEventListener('wheel', (e)=>{
       const factor = Math.exp(-e.deltaY * 0.001);
       const mx = e.clientX, my = e.clientY; const before = screenToWorld(mx,my);
@@ -145,49 +189,47 @@
       const after = screenToWorld(mx,my); cam.x += before.x-after.x; cam.y += before.y-after.y;
     }, { passive:true });
 
-    addEventListener('keydown', (e)=>{
-      const k = e.key.toLowerCase();
-      if(k==='m'){ toggleBuild('moon'); }
-      if(k==='s'){ toggleBuild('sat'); }
-      if(k==='h'){ toggleShop(); }
-    });
+    addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='h') toggleShop(); });
 
     // ---------- HUD + Shop ----------
-    const $money = q('#money'), $basalt=q('#basalt'), $energy=q('#energy');
+    const $money=q('#money'), $basalt=q('#basalt'), $energy=q('#energy');
     const $moons=q('#moons'), $sats=q('#sats'), $bRate=q('#bRate'), $eRate=q('#eRate'), $terr=q('#terr');
-    const $toast = q('#toast');
-    const $moonBtn=q('#moonBtn'), $satBtn=q('#satBtn'), $shopBtn=q('#shopBtn');
-    const $shop=q('#shop'), $expCost=q('#expCost'), $moonCost=q('#moonCost'), $satCost=q('#satCost');
+    const $toast=q('#toast');
+    const $shop=q('#shop'), $shopBtn=q('#shopBtn');
+    const $expCost=q('#expCost'), $moonCost=q('#moonCost'), $satCost=q('#satCost');
     const $sellB=q('#sellB'), $sellE=q('#sellE');
 
-    on($moonBtn,'click',()=>toggleBuild('moon'));
-    on($satBtn,'click',()=>toggleBuild('sat'));
     on($shopBtn,'click',()=>toggleShop(true));
     on(q('#closeShop'),'click',()=>toggleShop(false));
+
+    on(q('#startMoon'),'mousedown',()=>beginPlacing('moon'));
+    on(q('#startSat'),'mousedown',()=>beginPlacing('sat'));
+
     on(q('#buyExpand'),'click',()=>{
       if(state.money < state.expandCost) return toast('Not enough money.');
       state.money -= state.expandCost; state.territory += ECON.expandAmount;
       state.expandCost = Math.floor(state.expandCost * ECON.expandScale);
       updateHud(); save(); toast('Territory expanded!');
     });
-    on(q('#sellBasalt'),'click',()=>{
-      if(state.basalt < 50) return toast('Need at least 50 basalt.');
-      state.basalt -= 50; state.money += ECON.sell.basalt; updateHud(); save();
-    });
-    on(q('#sellEnergy'),'click',()=>{
-      if(state.energy < 50) return toast('Need at least 50 energy.');
-      state.energy -= 50; state.money += ECON.sell.energy; updateHud(); save();
-    });
+    on(q('#sellBasalt'),'click',()=>{ if(state.basalt < 50) return toast('Need at least 50 basalt.'); state.basalt -= 50; state.money += ECON.sell.basalt; updateHud(); save(); });
+    on(q('#sellEnergy'),'click',()=>{ if(state.energy < 50) return toast('Need at least 50 energy.'); state.energy -= 50; state.money += ECON.sell.energy; updateHud(); save(); });
 
-    function toggleBuild(kind){
-      if(kind==='moon' && state.money < ECON.moonCost) return toast('Need '+ECON.moonCost+' money for a Moon.');
-      if(kind==='sat' && state.money < ECON.satCost) return toast('Need '+ECON.satCost+' money for a Satellite.');
-      state.buildMode = (state.buildMode===kind ? null : kind);
-      updateHud();
+    function beginPlacing(kind){
+      const cost = (kind==='moon'? ECON.moonCost : ECON.satCost);
+      if(state.money < cost){ toast('Need '+cost+' money.'); return; }
+      toggleShop(false);
+      state.placing = { kind, r: Math.max(ORBIT.min, 90), angle: 0 };
     }
-    function toggleShop(force){
-      if(typeof force==='boolean') $shop.style.display = force? 'block':'none';
-      else $shop.style.display = ($shop.style.display==='block'?'none':'block');
+
+    function toggleShop(force){ if(typeof force==='boolean') $shop.style.display = force? 'block':'none'; else $shop.style.display = ($shop.style.display==='block'?'none':'block'); }
+
+    function isPlacementValid(r){
+      if(r < ORBIT.min || r > state.territory - 10) return false;
+      // keep orbits separate from each other
+      const near = (a,b)=> Math.abs(a-b) < ORBIT.gap;
+      for(const m of state.moons){ if(near(r, m.r)) return false; }
+      for(const s of state.sats){ if(near(r, s.r)) return false; }
+      return true;
     }
 
     function updateHud(){
@@ -199,14 +241,13 @@
       $terr.textContent = Math.floor(state.territory);
       $moonCost.textContent = ECON.moonCost; $satCost.textContent = ECON.satCost; $expCost.textContent = state.expandCost;
       $sellB.textContent = ECON.sell.basalt; $sellE.textContent = ECON.sell.energy;
-      const mode = state.buildMode; document.body.style.cursor = mode? 'crosshair':'default';
+      document.body.style.cursor = state.placing ? 'crosshair' : 'default';
     }
 
-    function toast(msg){
-      $toast.textContent = msg; $toast.style.display='block';
-      clearTimeout(toast._t); toast._t = setTimeout(()=>{ $toast.style.display='none'; }, 1600);
-    }
+    // UI refresh every second (feature 1)
+    setInterval(updateHud, 1000);
 
+    function toast(msg){ $toast.textContent = msg; $toast.style.display='block'; clearTimeout(toast._t); toast._t = setTimeout(()=>{ $toast.style.display='none'; }, 1600); }
     function q(sel){ return document.querySelector(sel); }
     function on(el,ev,fn){ el.addEventListener(ev,fn); }
 
@@ -225,6 +266,13 @@
 
     function draw(){
       accrue();
+      const now = Date.now();
+      const dt = (now - state.lastFrame)/1000; state.lastFrame = now;
+
+      // animate orbit angles
+      for(const m of state.moons){ m.angle += m.speed * dt; }
+      for(const s of state.sats){ s.angle += s.speed * dt; }
+
       ctx.clearRect(0,0,innerWidth,innerHeight);
       drawGrid();
 
@@ -241,10 +289,32 @@
       ctx.fillStyle = grad; ctx.fill();
       ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
 
-      // Moons
-      for(const m of state.moons){ const p=worldToScreen(m.x,m.y); ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='#bdbdbd'; ctx.fill(); ctx.strokeStyle='#8a8a8a'; ctx.stroke(); }
-      // Satellites
-      for(const s of state.sats){ const p=worldToScreen(s.x,s.y); const a=12; ctx.fillStyle='#ffd54f'; ctx.fillRect(p.x-a/2,p.y-a/2,a,a); ctx.strokeStyle='#c9a227'; ctx.lineWidth=1.5; ctx.strokeRect(p.x-a/2,p.y-a/2,a,a); }
+      // draw orbit paths (subtle)
+      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,.12)';
+      for(const m of state.moons){ ctx.beginPath(); ctx.arc(ps.x, ps.y, m.r*cam.zoom, 0, Math.PI*2); ctx.stroke(); }
+      for(const s of state.sats){ ctx.beginPath(); ctx.arc(ps.x, ps.y, s.r*cam.zoom, 0, Math.PI*2); ctx.stroke(); }
+
+      // Moons (circular, feature 2)
+      for(const m of state.moons){ const x = state.planet.x + Math.cos(m.angle)*m.r; const y = state.planet.y + Math.sin(m.angle)*m.r; const p=worldToScreen(x,y); ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='#bdbdbd'; ctx.fill(); ctx.strokeStyle='#8a8a8a'; ctx.stroke(); }
+      // Satellites (circular too)
+      for(const s of state.sats){ const x = state.planet.x + Math.cos(s.angle)*s.r; const y = state.planet.y + Math.sin(s.angle)*s.r; const p=worldToScreen(x,y); ctx.beginPath(); ctx.arc(p.x,p.y,8,0,Math.PI*2); ctx.fillStyle='#ffd54f'; ctx.fill(); ctx.strokeStyle='#c9a227'; ctx.stroke(); }
+
+      // Placement preview (feature 4 + red if invalid / feature 3)
+      if(state.placing){
+        const valid = isPlacementValid(state.placing.r);
+        // orbit ring preview
+        ctx.beginPath(); ctx.arc(ps.x, ps.y, state.placing.r*cam.zoom, 0, Math.PI*2);
+        ctx.lineWidth = 2; ctx.strokeStyle = valid ? 'rgba(122,255,150,.9)' : 'rgba(255,80,80,.9)'; ctx.stroke();
+        // ghost body at current angle
+        const gx = state.planet.x + Math.cos(state.placing.angle)*state.placing.r;
+        const gy = state.planet.y + Math.sin(state.placing.angle)*state.placing.r;
+        const gp = worldToScreen(gx, gy);
+        ctx.beginPath();
+        const rad = state.placing.kind==='moon' ? 10 : 8;
+        ctx.arc(gp.x, gp.y, rad, 0, Math.PI*2);
+        ctx.fillStyle = valid ? 'rgba(200,255,200,.7)' : 'rgba(255,120,120,.7)';
+        ctx.fill();
+      }
 
       requestAnimationFrame(draw);
     }
@@ -252,10 +322,6 @@
 
     // autosave
     setInterval(save, 4000);
-
-    // ---------- Notes for server version ----------
-    // Replace local accrual with server-authoritative accrual so production continues while offline
-    // and can’t be cheated. Keep the same endpoints pattern discussed earlier (state, place, trade, expand).
   </script>
 </body>
 </html>
