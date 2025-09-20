@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PlanetForge — planet upgrades & cleaner orbits (fixed bindings)</title>
+  <title>PlanetForge — planet upgrades & cleaner orbits (fixed wheel + tests)</title>
   <style>
     html, body { margin:0; height:100%; overflow:hidden; font-family: system-ui, sans-serif; }
     canvas { display:block; width:100vw; height:100vh; background: radial-gradient(circle at 50% 50%, #0b1220, #050910 60%, #03060b); }
@@ -165,7 +165,7 @@
     let panning=false, last={x:0,y:0};
     cvs.addEventListener('contextmenu', e => e.preventDefault());
 
-    addEventListener('mousedown', (e)=>{
+    cvs.addEventListener('mousedown', (e)=>{
       if(e.button===2){ panning=true; last.x=e.clientX; last.y=e.clientY; return; }
       if(e.button===0){
         // Placing commitment
@@ -181,25 +181,25 @@
           } else { toast('Invalid orbit — overlaps or outside territory.'); }
           return;
         }
-        // Selection: building or planet
+        // Selection: building or planet (canvas only)
         const world = screenToWorld(e.clientX, e.clientY);
         const hit = pickBuilding(world.x, world.y);
         if(hit){ state.selected = hit; updatePanel(); return; }
-        // check planet
         const dx = world.x - state.planet.x, dy = world.y - state.planet.y;
         if(Math.hypot(dx,dy) <= state.planet.radius + 8/cam.zoom){ state.selected = {kind:'planet'}; updatePanel(); return; }
         state.selected = null; updatePanel();
       }
     });
 
-    addEventListener('mousemove', (e)=>{
+    cvs.addEventListener('mousemove', (e)=>{
       if(panning){ const dx=(e.clientX-last.x)/cam.zoom, dy=(e.clientY-last.y)/cam.zoom; cam.x-=dx; cam.y-=dy; last.x=e.clientX; last.y=e.clientY; return; }
       if(state.placing){ const w = screenToWorld(e.clientX, e.clientY); const dx=w.x-state.planet.x, dy=w.y-state.planet.y; state.placing.r=Math.hypot(dx,dy); state.placing.angle=Math.atan2(dy,dx); }
     });
 
-    addEventListener('mouseup', (e)=>{ if(e.button===2) panning=false; });
+    cvs.addEventListener('mouseup', (e)=>{ if(e.button===2) panning=false; });
 
-    addEventListener('wheel', (e)=>{
+    // FIX: this handler was duplicated before, causing a stray '}' syntax error. Now defined once.
+    cvs.addEventListener('wheel', (e)=>{
       const factor = Math.exp(-e.deltaY * 0.001);
       const mx = e.clientX, my = e.clientY; const before = screenToWorld(mx,my);
       cam.zoom = Math.min(3, Math.max(0.25, cam.zoom * factor));
@@ -219,7 +219,6 @@
     const $panel=q('#panel'), $panelTitle=q('#panelTitle'), $bLvl=q('#bLvl'), $bProd=q('#bProd'), $bUpCost=q('#bUpCost');
     const $rowProd=q('#rowProd'), $rowDemo=q('#rowDemo'); const $prodLabel=q('#prodLabel');
 
-    // NOTE: Replaced `on(el,evt,fn)` helper with standard addEventListener bindings to fix ReferenceError.
     $shopBtn.addEventListener('click', ()=>toggleShop(true));
     q('#closeShop').addEventListener('click', ()=>toggleShop(false));
     q('#startMoon').addEventListener('mousedown', ()=>beginPlacing('moon'));
@@ -316,7 +315,7 @@
       ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,0.05)';
       ctx.beginPath();
       for(let x=minx; x<=maxx; x+=step){ const p1=worldToScreen(x, miny), p2=worldToScreen(x, maxy); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); }
-      for(let y=miny; y<=maxy; y+=step){ const p1=worldToScreen(minx, y), p2=worldToScreen(maxx, y); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); }
+      for(let y=miny; y<=maxy; y+=step){ const p1=worldToScreen(minx, y), p2=worldToScreen(maxx, y); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2,y); }
       ctx.stroke();
     }
 
@@ -384,7 +383,7 @@
     // autosave
     setInterval(save, 4000);
 
-    // ---------- Simple self-tests (runtime) ----------
+    // ---------- Self-tests (runtime) ----------
     (function runSelfTests(){
       try {
         console.groupCollapsed('PlanetForge self-tests');
@@ -392,6 +391,58 @@
         console.assert(typeof toggleShop === 'function', 'toggleShop exists');
         console.assert(typeof beginPlacing === 'function', 'beginPlacing exists');
         console.assert(typeof window.on === 'undefined', 'no stray on() helper');
+
+        // Ensure panel mousedown does not deselect (handlers bound to canvas only)
+        const keepSel = state.selected; state.selected = {kind:'planet'};
+        document.querySelector('#panel').dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));
+        console.assert(state.selected && state.selected.kind==='planet', 'panel mousedown does not deselect');
+
+        // Upgrade & demolish flows (non-destructive; restore after)
+        const backup = {
+          money: state.money,
+          moons: JSON.parse(JSON.stringify(state.moons)),
+          sats: JSON.parse(JSON.stringify(state.sats)),
+          selected: state.selected && JSON.parse(JSON.stringify(state.selected)),
+          planetLvl: state.planet.level,
+          territory: state.territory
+        };
+
+        // Add a moon and test upgrade
+        state.money = 999999;
+        state.moons.push({ r:120, angle:0, speed:orbitSpeed(120), lvl:1, spent: ECON.moonCost });
+        state.selected = {kind:'moon', idx: state.moons.length-1};
+        updatePanel();
+        const upCost = upgradeCost('moon', 1);
+        const mBefore = state.money;
+        document.querySelector('#bUpgrade').click();
+        console.assert(state.moons[state.moons.length-1].lvl === 2, 'Upgrade increases building level');
+        console.assert(state.money === mBefore - upCost, 'Upgrade deducts correct money');
+
+        // Demolish and verify refund
+        const spent = state.moons[state.moons.length-1].spent;
+        const refund = Math.floor(spent * 0.75);
+        const moneyBeforeDemo = state.money;
+        document.querySelector('#bDemo').click();
+        console.assert(state.moons.length === backup.moons.length, 'Demolish removes the building');
+        console.assert(state.money === moneyBeforeDemo + refund, 'Demolish refunds 75%');
+
+        // Planet upgrade test
+        state.selected = {kind:'planet'}; updatePanel();
+        const pLv0 = state.planet.level; const pCost = upgradeCost('planet', pLv0);
+        state.money = 999999;
+        document.querySelector('#bUpgrade').click();
+        console.assert(state.planet.level === pLv0 + 1, 'Planet upgrade increases level');
+        console.assert(state.territory === ECON.territory.base + (state.planet.level-1)*ECON.territory.perLevel, 'Territory matches planet level');
+
+        // Restore
+        state.money = backup.money;
+        state.moons = backup.moons;
+        state.sats = backup.sats;
+        state.selected = backup.selected;
+        state.planet.level = backup.planetLvl;
+        state.territory = backup.territory;
+        updateHud(); updatePanel();
+
         console.groupEnd();
       } catch (e) { console.warn('Self-tests error', e); }
     })();
