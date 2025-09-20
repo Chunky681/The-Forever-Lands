@@ -308,18 +308,39 @@
 
     updateHud();
 
-    // ---------- Render ----------
-    function drawGrid(){
-      const step = 100; const minx = Math.floor(cam.x/step)*step; const miny = Math.floor(cam.y/step)*step;
-      const maxx = cam.x + innerWidth / cam.zoom; const maxy = cam.y + innerHeight / cam.zoom;
-      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-      ctx.beginPath();
-      for(let x=minx; x<=maxx; x+=step){ const p1=worldToScreen(x, miny), p2=worldToScreen(x, maxy); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); }
-      for(let y=miny; y<=maxy; y+=step){ const p1=worldToScreen(minx, y), p2=worldToScreen(maxx, y); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2,y); }
-      ctx.stroke();
+    // ---------- Stars ----------
+    const STAR_COLORS = ['#ffffff','#ffd9a5','#a5c9ff','#fff8d1','#d1e0ff'];
+    let stars = [];
+    function createStars(N=900){
+      stars = [];
+      const range = 6000; // world-space span so panning reveals new stars
+      for(let i=0;i<N;i++){
+        const x = (Math.random()*2-1)*range;
+        const y = (Math.random()*2-1)*range;
+        const r = Math.random()*1.2 + 0.3; // tiny dots
+        const color = STAR_COLORS[(Math.random()*STAR_COLORS.length)|0];
+        const phase = Math.random()*Math.PI*2; // twinkle offset
+        stars.push({x,y,r,color,phase});
+      }
+    }
+    createStars();
+
+    function drawStars(time){
+      // Only draw stars that are within (or just outside) the viewport for perf
+      const left = cam.x, top = cam.y, right = cam.x + innerWidth/cam.zoom, bottom = cam.y + innerHeight/cam.zoom;
+      for(const s of stars){
+        if(s.x < left-100 || s.x > right+100 || s.y < top-100 || s.y > bottom+100) continue;
+        const p = worldToScreen(s.x, s.y);
+        const tw = 0.7 + 0.3 * Math.sin(time*0.001 + s.phase);
+        ctx.globalAlpha = 0.6 + 0.4*tw;
+        ctx.fillStyle = s.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, s.r*cam.zoom, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
     }
 
-    function draw(){
+    // ---------- Render ----------
+        function draw(){
       accrue();
       const now = Date.now();
       const dt = (now - state.lastFrame)/1000; state.lastFrame = now;
@@ -328,7 +349,7 @@
       for(const s of state.sats){ s.angle += s.speed * dt; }
 
       ctx.clearRect(0,0,innerWidth,innerHeight);
-      drawGrid();
+      drawStars(now);
 
       const ps = worldToScreen(state.planet.x, state.planet.y);
 
@@ -390,6 +411,8 @@
         console.assert(!!document.querySelector('#shopBtn'), 'shopBtn exists');
         console.assert(typeof toggleShop === 'function', 'toggleShop exists');
         console.assert(typeof beginPlacing === 'function', 'beginPlacing exists');
+        console.assert(Array.isArray(stars) && stars.length>0, 'stars generated');
+        try { drawStars(Date.now()); console.assert(true, 'drawStars callable'); } catch(e){ console.assert(false, 'drawStars threw: '+e.message); }
         console.assert(typeof window.on === 'undefined', 'no stray on() helper');
 
         // Ensure panel mousedown does not deselect (handlers bound to canvas only)
