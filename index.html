@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PlanetForge — upgrades & demolish</title>
+  <title>PlanetForge — planet upgrades & cleaner orbits</title>
   <style>
     html, body { margin:0; height:100%; overflow:hidden; font-family: system-ui, sans-serif; }
     canvas { display:block; width:100vw; height:100vh; background: radial-gradient(circle at 50% 50%, #0b1220, #050910 60%, #03060b); }
@@ -18,7 +18,7 @@
     #shop input { width: 90px; }
     .muted { opacity:.75 }
     .kbd { background:#222; padding:2px 6px; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    #panel { position: fixed; left: 12px; bottom: 12px; background: rgba(0,0,0,.65); color:#fff; padding: 10px 12px; border-radius: 12px; font-size: 14px; display:none; min-width: 240px; }
+    #panel { position: fixed; left: 12px; bottom: 12px; background: rgba(0,0,0,.65); color:#fff; padding: 10px 12px; border-radius: 12px; font-size: 14px; display:none; min-width: 260px; }
     #panel .row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 0; }
   </style>
 </head>
@@ -30,9 +30,8 @@
     <div>Money: <span id="money">0</span></div>
     <div>Basalt: <span id="basalt">0</span> • Energy: <span id="energy">0</span></div>
     <div>Moons: <span id="moons">0</span> (+<span id="bRate">0</span>/s) • Satellites: <span id="sats">0</span> (+<span id="eRate">0</span>/s)</div>
-    <div class="muted" style="margin-top:4px">R‑drag: pan • Wheel: zoom • <span class="kbd">H</span> shop • Click a building to select • Drag from shop to choose orbit, then click to place</div>
+    <div class="muted" style="margin-top:4px">R‑drag: pan • Wheel: zoom • <span class="kbd">H</span> shop • Click planet/buildings to manage • Drag from shop to choose orbit, then click to place</div>
     <button id="shopBtn">Open Shop</button>
-    <button id="planetUpBtn">Upgrade Planet (<span id="pUpCost">500</span>)</button>
   </div>
 
   <div id="shop">
@@ -76,11 +75,11 @@
   </div>
 
   <div id="panel">
-    <div><strong id="panelTitle">Building</strong></div>
-    <div class="row"><div>Level</div><div> <span id="bLvl">1</span> / 10 </div></div>
-    <div class="row"><div>Prod</div><div><span id="bProd">+1</span>/s</div></div>
-    <div class="row"><div>Upgrade</div><div><button id="bUpgrade">Upgrade (<span id="bUpCost">—</span>)</button></div></div>
-    <div class="row"><div>Demolish</div><div><button id="bDemo">Refund 75%</button></div></div>
+    <div><strong id="panelTitle">Details</strong></div>
+    <div class="row" id="rowLevel"><div>Level</div><div><span id="bLvl">1</span> / 10</div></div>
+    <div class="row" id="rowProd"><div id="prodLabel">Prod</div><div><span id="bProd">+1</span></div></div>
+    <div class="row" id="rowUpgrade"><div>Upgrade</div><div><button id="bUpgrade">Upgrade (<span id="bUpCost">—</span>)</button></div></div>
+    <div class="row" id="rowDemo"><div>Demolish</div><div><button id="bDemo">Refund 75%</button></div></div>
     <div style="text-align:right; margin-top:6px"><button id="bClose">Close</button></div>
   </div>
 
@@ -101,9 +100,9 @@
     addEventListener('resize', resize); resize();
 
     // ---------- Game state & economy ----------
-    const STORAGE_KEY = 'planetforge:v3';
+    const STORAGE_KEY = 'planetforge:v3.1';
     const ECON = {
-      startMoney: 500,
+      startMoney: 20000, // testing boost
       moonCost: 100,
       satCost: 120,
       upgrade: { // cost to go from L -> L+1
@@ -127,7 +126,7 @@
       lastFrame: Date.now(),
       cam: { x: -innerWidth/2, y: -innerHeight/2, zoom: 1 },
       placing: null, // {kind:'moon'|'sat', r:number, angle:number}
-      selected: null, // {kind, idx}
+      selected: null, // {kind:'moon'|'sat'|'planet', idx?}
     };
 
     function load(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null } catch { return null } }
@@ -142,8 +141,7 @@
     const ORBIT = { min: 60, gap: 24, speedBase: 0.35 };
     function orbitSpeed(r){ return ORBIT.speedBase * (100 / Math.max(50, r)); }
 
-    // upgrade costs
-    function upgradeCost(kind, lvl){ // cost to go from lvl -> lvl+1
+    function upgradeCost(kind, lvl){
       if(kind==='moon') return Math.floor(ECON.upgrade.moonBase * Math.pow(ECON.upgrade.mult, Math.max(0,lvl-1)));
       if(kind==='sat')  return Math.floor(ECON.upgrade.satBase  * Math.pow(ECON.upgrade.mult, Math.max(0,lvl-1)));
       if(kind==='planet') return Math.floor(ECON.upgrade.planetBase * Math.pow(ECON.upgrade.planetMult, Math.max(0,lvl-1)));
@@ -170,7 +168,8 @@
     addEventListener('mousedown', (e)=>{
       if(e.button===2){ panning=true; last.x=e.clientX; last.y=e.clientY; return; }
       if(e.button===0){
-        if(state.placing){ // confirm placement
+        // Placing commitment
+        if(state.placing){
           if(isPlacementValid(state.placing.r)){
             const k = state.placing.kind;
             const base = (k==='moon'? ECON.moonCost : ECON.satCost);
@@ -179,15 +178,17 @@
             const obj = { r: state.placing.r, angle: state.placing.angle, speed: orbitSpeed(state.placing.r), lvl:1, spent: base };
             (k==='moon'? state.moons : state.sats).push(obj);
             state.placing=null; updateHud(); save();
-          } else {
-            toast('Invalid orbit — overlaps or outside territory.');
-          }
+          } else { toast('Invalid orbit — overlaps or outside territory.'); }
           return;
         }
-        // else: try selecting a building
+        // Selection: building or planet
         const world = screenToWorld(e.clientX, e.clientY);
         const hit = pickBuilding(world.x, world.y);
-        state.selected = hit; updatePanel();
+        if(hit){ state.selected = hit; updatePanel(); return; }
+        // check planet
+        const dx = world.x - state.planet.x, dy = world.y - state.planet.y;
+        if(Math.hypot(dx,dy) <= state.planet.radius + 8/cam.zoom){ state.selected = {kind:'planet'}; updatePanel(); return; }
+        state.selected = null; updatePanel();
       }
     });
 
@@ -210,85 +211,70 @@
     // ---------- HUD + Shop + Panel ----------
     const $money=q('#money'), $basalt=q('#basalt'), $energy=q('#energy');
     const $moons=q('#moons'), $sats=q('#sats'), $bRate=q('#bRate'), $eRate=q('#eRate'), $terr=q('#terr');
-    const $pLv=q('#pLv'), $pUpCost=q('#pUpCost');
+    const $pLv=q('#pLv');
     const $toast=q('#toast');
     const $shop=q('#shop'), $shopBtn=q('#shopBtn');
     const $moonCost=q('#moonCost'), $satCost=q('#satCost');
     const $sellBAmt=q('#sellBasaltAmt'), $sellEAmt=q('#sellEnergyAmt');
     const $panel=q('#panel'), $panelTitle=q('#panelTitle'), $bLvl=q('#bLvl'), $bProd=q('#bProd'), $bUpCost=q('#bUpCost');
+    const $rowProd=q('#rowProd'), $rowDemo=q('#rowDemo'); const $prodLabel=q('#prodLabel');
 
     on($shopBtn,'click',()=>toggleShop(true));
     on(q('#closeShop'),'click',()=>toggleShop(false));
     on(q('#startMoon'),'mousedown',()=>beginPlacing('moon'));
     on(q('#startSat'),'mousedown',()=>beginPlacing('sat'));
 
-    on(q('#sellBasalt'),'click',()=>{
-      const amt = Math.max(0, Math.floor(Number($sellBAmt.value||0)));
-      if(amt<=0) return; if(state.basalt < amt) return toast('Not enough basalt.');
-      state.basalt -= amt; state.money += amt * ECON.sellUnit.basalt; updateHud(); save();
-    });
-    on(q('#sellEnergy'),'click',()=>{
-      const amt = Math.max(0, Math.floor(Number($sellEAmt.value||0)));
-      if(amt<=0) return; if(state.energy < amt) return toast('Not enough energy.');
-      state.energy -= amt; state.money += amt * ECON.sellUnit.energy; updateHud(); save();
-    });
-
-    on(q('#planetUpBtn'),'click',()=>{
-      const lvl = state.planet.level; if(lvl>=ECON.maxLevel) return toast('Planet is max level.');
-      const cost = upgradeCost('planet', lvl);
-      if(state.money < cost) return toast('Need '+cost+' money.');
-      state.money -= cost; state.planet.level++; state.territory = ECON.territory.base + (state.planet.level-1)*ECON.territory.perLevel;
-      updateHud(); save();
-    });
+    on(q('#sellBasalt'),'click',()=>{ const amt = Math.max(0, Math.floor(Number($sellBAmt.value||0))); if(amt<=0) return; if(state.basalt < amt) return toast('Not enough basalt.'); state.basalt -= amt; state.money += amt * ECON.sellUnit.basalt; updateHud(); save(); });
+    on(q('#sellEnergy'),'click',()=>{ const amt = Math.max(0, Math.floor(Number($sellEAmt.value||0))); if(amt<=0) return; if(state.energy < amt) return toast('Not enough energy.'); state.energy -= amt; state.money += amt * ECON.sellUnit.energy; updateHud(); save(); });
 
     on(q('#bClose'),'click',()=>{ state.selected=null; updatePanel(); });
     on(q('#bUpgrade'),'click',()=>{
-      const sel = state.selected; if(!sel) return; const list = (sel.kind==='moon'? state.moons : state.sats); const obj = list[sel.idx];
+      const sel = state.selected; if(!sel) return;
+      if(sel.kind==='planet'){
+        if(state.planet.level>=ECON.maxLevel) return toast('Planet is max level.');
+        const cost = upgradeCost('planet', state.planet.level);
+        if(state.money < cost) return toast('Need '+cost+' money.');
+        state.money -= cost; state.planet.level++; state.territory = ECON.territory.base + (state.planet.level-1)*ECON.territory.perLevel; updateHud(); updatePanel(); save(); return;
+      }
+      const list = (sel.kind==='moon'? state.moons : state.sats); const obj = list[sel.idx];
       if(obj.lvl>=ECON.maxLevel) return toast('Max level.');
       const cost = upgradeCost(sel.kind, obj.lvl);
       if(state.money < cost) return toast('Need '+cost+' money.');
       state.money -= cost; obj.lvl++; obj.spent += cost; updatePanel(); updateHud(); save();
     });
-    on(q('#bDemo'),'click',()=>{
-      const sel = state.selected; if(!sel) return; const list = (sel.kind==='moon'? state.moons : state.sats); const obj = list[sel.idx];
-      const refund = Math.floor(obj.spent * 0.75);
-      state.money += refund; list.splice(sel.idx,1); state.selected=null; updatePanel(); updateHud(); save();
-      toast('Demolished. Refunded '+refund+'.');
-    });
+    on(q('#bDemo'),'click',()=>{ const sel = state.selected; if(!sel || sel.kind==='planet') return; const list=(sel.kind==='moon'?state.moons:state.sats); const obj=list[sel.idx]; const refund=Math.floor(obj.spent*0.75); state.money+=refund; list.splice(sel.idx,1); state.selected=null; updatePanel(); updateHud(); save(); toast('Demolished. Refunded '+refund+'.'); });
 
-    function beginPlacing(kind){
-      const base = (kind==='moon'? ECON.moonCost : ECON.satCost);
-      if(state.money < base){ toast('Need '+base+' money.'); return; }
-      toggleShop(false); state.selected=null; updatePanel();
-      state.placing = { kind, r: Math.max(ORBIT.min, 90), angle: 0 };
-    }
+    function beginPlacing(kind){ const base=(kind==='moon'?ECON.moonCost:ECON.satCost); if(state.money < base){ toast('Need '+base+' money.'); return; } toggleShop(false); state.selected=null; updatePanel(); state.placing = { kind, r: Math.max(ORBIT.min, 90), angle: 0 }; }
 
     function toggleShop(force){ if(typeof force==='boolean') $shop.style.display = force? 'block':'none'; else $shop.style.display = ($shop.style.display==='block'?'none':'block'); }
 
-    function isPlacementValid(r){
-      if(r < ORBIT.min || r > state.territory - 10) return false;
-      const near = (a,b)=> Math.abs(a-b) < ORBIT.gap;
-      for(const m of state.moons){ if(near(r, m.r)) return false; }
-      for(const s of state.sats){ if(near(r, s.r)) return false; }
-      return true;
-    }
+    function isPlacementValid(r){ if(r < ORBIT.min || r > state.territory - 10) return false; const near=(a,b)=> Math.abs(a-b) < ORBIT.gap; for(const m of state.moons){ if(near(r, m.r)) return false; } for(const s of state.sats){ if(near(r, s.r)) return false; } return true; }
 
     function pickBuilding(wx, wy){
-      const snap = (x,y)=>({x: (x - cam.x)*cam.zoom, y:(y - cam.y)*cam.zoom });
-      const test = (x,y,rad)=>{ const dx=(x-wx), dy=(y-wy); return Math.hypot(dx,dy) < rad; };
-      // compute current world positions
-      for(let i=0;i<state.moons.length;i++){ const m=state.moons[i]; const x=state.planet.x + Math.cos(m.angle)*m.r; const y=state.planet.y + Math.sin(m.angle)*m.r; if(test(x,y,12/cam.zoom)) return {kind:'moon', idx:i}; }
-      for(let i=0;i<state.sats.length;i++){ const s=state.sats[i]; const x=state.planet.x + Math.cos(s.angle)*s.r; const y=state.planet.y + Math.sin(s.angle)*s.r; if(test(x,y,12/cam.zoom)) return {kind:'sat', idx:i}; }
+      // compute current world positions for moving bodies
+      for(let i=0;i<state.moons.length;i++){ const m=state.moons[i]; const x=state.planet.x + Math.cos(m.angle)*m.r; const y=state.planet.y + Math.sin(m.angle)*m.r; if(Math.hypot(wx-x, wy-y) < 12/cam.zoom) return {kind:'moon', idx:i}; }
+      for(let i=0;i<state.sats.length;i++){ const s=state.sats[i]; const x=state.planet.x + Math.cos(s.angle)*s.r; const y=state.planet.y + Math.sin(s.angle)*s.r; if(Math.hypot(wx-x, wy-y) < 12/cam.zoom) return {kind:'sat', idx:i}; }
       return null;
     }
 
     function updatePanel(){
-      if(!state.selected){ $panel.style.display='none'; return; }
-      const sel = state.selected; const list = (sel.kind==='moon'? state.moons : state.sats); const obj = list[sel.idx];
+      const sel = state.selected;
+      if(!sel){ $panel.style.display='none'; return; }
       $panel.style.display='block';
+      if(sel.kind==='planet'){
+        $panelTitle.textContent = 'Planet';
+        $bLvl.textContent = state.planet.level; $bUpCost.textContent = (state.planet.level>=ECON.maxLevel? 'Max' : upgradeCost('planet', state.planet.level));
+        $prodLabel.textContent = 'Territory'; $bProd.textContent = state.territory + 'u';
+        $rowDemo.style.display = 'none'; // cannot demolish planet
+        $rowProd.style.display = 'flex';
+        return;
+      }
+      const list = (sel.kind==='moon'? state.moons : state.sats); const obj = list[sel.idx];
       $panelTitle.textContent = sel.kind==='moon' ? 'Moon' : 'Satellite';
-      $bLvl.textContent = obj.lvl; $bProd.textContent = '+'+obj.lvl;
-      $bUpCost.textContent = (obj.lvl>=ECON.maxLevel? 'Max' : upgradeCost(sel.kind, obj.lvl));
+      $bLvl.textContent = obj.lvl; $bUpCost.textContent = (obj.lvl>=ECON.maxLevel? 'Max' : upgradeCost(sel.kind, obj.lvl));
+      $prodLabel.textContent = 'Prod'; $bProd.textContent = '+'+obj.lvl+'/s';
+      $rowDemo.style.display = 'flex';
+      $rowProd.style.display = 'flex';
     }
 
     function updateHud(){
@@ -300,7 +286,6 @@
       $sats.textContent = state.sats.length; $eRate.textContent = satRate;
       $pLv.textContent = state.planet.level; $terr.textContent = Math.floor(state.territory);
       $moonCost.textContent = ECON.moonCost; $satCost.textContent = ECON.satCost;
-      $pUpCost.textContent = (state.planet.level>=ECON.maxLevel? 'Max' : upgradeCost('planet', state.planet.level));
       document.body.style.cursor = state.placing ? 'crosshair' : 'default';
     }
 
@@ -309,7 +294,6 @@
 
     function toast(msg){ $toast.textContent = msg; $toast.style.display='block'; clearTimeout(toast._t); toast._t = setTimeout(()=>{ $toast.style.display='none'; }, 1600); }
     function q(sel){ return document.querySelector(sel); }
-    function on(el,ev,fn){ el.addEventListener(ev,fn); }
 
     updateHud();
 
@@ -335,30 +319,44 @@
       ctx.clearRect(0,0,innerWidth,innerHeight);
       drawGrid();
 
-      // Territory ring
       const ps = worldToScreen(state.planet.x, state.planet.y);
+
+      // Territory ring
       ctx.beginPath(); ctx.arc(ps.x, ps.y, state.territory*cam.zoom, 0, Math.PI*2);
       ctx.fillStyle = 'rgba(80,200,255,0.08)'; ctx.fill();
       ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(80,200,255,.6)'; ctx.stroke();
 
-      // Planet
+      // Planet (highlight if selected)
       ctx.beginPath(); ctx.arc(ps.x, ps.y, state.planet.radius*cam.zoom, 0, Math.PI*2);
       const grad = ctx.createRadialGradient(ps.x-6, ps.y-6, 6, ps.x, ps.y, state.planet.radius*cam.zoom);
       grad.addColorStop(0,'#4fd1c5'); grad.addColorStop(1,'#2563eb');
       ctx.fillStyle = grad; ctx.fill();
-      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+      ctx.lineWidth = (state.selected && state.selected.kind==='planet') ? 4 : 2;
+      ctx.strokeStyle = (state.selected && state.selected.kind==='planet') ? '#3cf' : 'rgba(0,0,0,.35)';
+      ctx.stroke();
 
-      // draw orbit paths
-      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,.12)';
-      for(const m of state.moons){ ctx.beginPath(); ctx.arc(ps.x, ps.y, m.r*cam.zoom, 0, Math.PI*2); ctx.stroke(); }
-      for(const s of state.sats){ ctx.beginPath(); ctx.arc(ps.x, ps.y, s.r*cam.zoom, 0, Math.PI*2); ctx.stroke(); }
+      // Only draw orbit path for the **selected** object (cleaner view), and the placement preview
+      if(state.selected && state.selected.kind!=='planet'){
+        const sel = state.selected; const list = (sel.kind==='moon'? state.moons : state.sats); const obj = list[sel.idx];
+        if(obj){ ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(ps.x, ps.y, obj.r*cam.zoom, 0, Math.PI*2); ctx.stroke(); }
+      }
 
       // Moons
-      for(let i=0;i<state.moons.length;i++){ const m=state.moons[i]; const x=state.planet.x + Math.cos(m.angle)*m.r; const y=state.planet.y + Math.sin(m.angle)*m.r; const p=worldToScreen(x,y); ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='#bdbdbd'; ctx.fill(); ctx.strokeStyle=(state.selected&&state.selected.kind==='moon'&&state.selected.idx===i)?'#3cf':'#8a8a8a'; ctx.lineWidth=(state.selected&&state.selected.kind==='moon'&&state.selected.idx===i)?3:1.5; ctx.stroke(); }
+      for(let i=0;i<state.moons.length;i++){
+        const m=state.moons[i]; const x=state.planet.x + Math.cos(m.angle)*m.r; const y=state.planet.y + Math.sin(m.angle)*m.r; const p=worldToScreen(x,y);
+        ctx.beginPath(); ctx.arc(p.x,p.y,10,0,Math.PI*2); ctx.fillStyle='#bdbdbd'; ctx.fill();
+        ctx.strokeStyle=(state.selected&&state.selected.kind==='moon'&&state.selected.idx===i)?'#3cf':'#8a8a8a';
+        ctx.lineWidth=(state.selected&&state.selected.kind==='moon'&&state.selected.idx===i)?3:1.5; ctx.stroke();
+      }
       // Satellites
-      for(let i=0;i<state.sats.length;i++){ const s=state.sats[i]; const x=state.planet.x + Math.cos(s.angle)*s.r; const y=state.planet.y + Math.sin(s.angle)*s.r; const p=worldToScreen(x,y); ctx.beginPath(); ctx.arc(p.x,p.y,8,0,Math.PI*2); ctx.fillStyle='#ffd54f'; ctx.fill(); ctx.strokeStyle=(state.selected&&state.selected.kind==='sat'&&state.selected.idx===i)?'#3cf':'#c9a227'; ctx.lineWidth=(state.selected&&state.selected.kind==='sat'&&state.selected.idx===i)?3:1.5; ctx.stroke(); }
+      for(let i=0;i<state.sats.length;i++){
+        const s=state.sats[i]; const x=state.planet.x + Math.cos(s.angle)*s.r; const y=state.planet.y + Math.sin(s.angle)*s.r; const p=worldToScreen(x,y);
+        ctx.beginPath(); ctx.arc(p.x,p.y,8,0,Math.PI*2); ctx.fillStyle='#ffd54f'; ctx.fill();
+        ctx.strokeStyle=(state.selected&&state.selected.kind==='sat'&&state.selected.idx===i)?'#3cf':'#c9a227';
+        ctx.lineWidth=(state.selected&&state.selected.kind==='sat'&&state.selected.idx===i)?3:1.5; ctx.stroke();
+      }
 
-      // Placement preview
+      // Placement preview (with its path)
       if(state.placing){
         const valid = isPlacementValid(state.placing.r);
         ctx.beginPath(); ctx.arc(ps.x, ps.y, state.placing.r*cam.zoom, 0, Math.PI*2);
