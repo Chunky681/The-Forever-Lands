@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PlanetForge — planet upgrades & cleaner orbits</title>
+  <title>PlanetForge — planet upgrades & cleaner orbits (fixed bindings)</title>
   <style>
     html, body { margin:0; height:100%; overflow:hidden; font-family: system-ui, sans-serif; }
     canvas { display:block; width:100vw; height:100vh; background: radial-gradient(circle at 50% 50%, #0b1220, #050910 60%, #03060b); }
@@ -219,16 +219,25 @@
     const $panel=q('#panel'), $panelTitle=q('#panelTitle'), $bLvl=q('#bLvl'), $bProd=q('#bProd'), $bUpCost=q('#bUpCost');
     const $rowProd=q('#rowProd'), $rowDemo=q('#rowDemo'); const $prodLabel=q('#prodLabel');
 
-    on($shopBtn,'click',()=>toggleShop(true));
-    on(q('#closeShop'),'click',()=>toggleShop(false));
-    on(q('#startMoon'),'mousedown',()=>beginPlacing('moon'));
-    on(q('#startSat'),'mousedown',()=>beginPlacing('sat'));
+    // NOTE: Replaced `on(el,evt,fn)` helper with standard addEventListener bindings to fix ReferenceError.
+    $shopBtn.addEventListener('click', ()=>toggleShop(true));
+    q('#closeShop').addEventListener('click', ()=>toggleShop(false));
+    q('#startMoon').addEventListener('mousedown', ()=>beginPlacing('moon'));
+    q('#startSat').addEventListener('mousedown', ()=>beginPlacing('sat'));
 
-    on(q('#sellBasalt'),'click',()=>{ const amt = Math.max(0, Math.floor(Number($sellBAmt.value||0))); if(amt<=0) return; if(state.basalt < amt) return toast('Not enough basalt.'); state.basalt -= amt; state.money += amt * ECON.sellUnit.basalt; updateHud(); save(); });
-    on(q('#sellEnergy'),'click',()=>{ const amt = Math.max(0, Math.floor(Number($sellEAmt.value||0))); if(amt<=0) return; if(state.energy < amt) return toast('Not enough energy.'); state.energy -= amt; state.money += amt * ECON.sellUnit.energy; updateHud(); save(); });
+    q('#sellBasalt').addEventListener('click', ()=>{
+      const amt = Math.max(0, Math.floor(Number($sellBAmt.value||0)));
+      if(amt<=0) return; if(state.basalt < amt) return toast('Not enough basalt.');
+      state.basalt -= amt; state.money += amt * ECON.sellUnit.basalt; updateHud(); save();
+    });
+    q('#sellEnergy').addEventListener('click', ()=>{
+      const amt = Math.max(0, Math.floor(Number($sellEAmt.value||0)));
+      if(amt<=0) return; if(state.energy < amt) return toast('Not enough energy.');
+      state.energy -= amt; state.money += amt * ECON.sellUnit.energy; updateHud(); save();
+    });
 
-    on(q('#bClose'),'click',()=>{ state.selected=null; updatePanel(); });
-    on(q('#bUpgrade'),'click',()=>{
+    q('#bClose').addEventListener('click', ()=>{ state.selected=null; updatePanel(); });
+    q('#bUpgrade').addEventListener('click', ()=>{
       const sel = state.selected; if(!sel) return;
       if(sel.kind==='planet'){
         if(state.planet.level>=ECON.maxLevel) return toast('Planet is max level.');
@@ -242,7 +251,10 @@
       if(state.money < cost) return toast('Need '+cost+' money.');
       state.money -= cost; obj.lvl++; obj.spent += cost; updatePanel(); updateHud(); save();
     });
-    on(q('#bDemo'),'click',()=>{ const sel = state.selected; if(!sel || sel.kind==='planet') return; const list=(sel.kind==='moon'?state.moons:state.sats); const obj=list[sel.idx]; const refund=Math.floor(obj.spent*0.75); state.money+=refund; list.splice(sel.idx,1); state.selected=null; updatePanel(); updateHud(); save(); toast('Demolished. Refunded '+refund+'.'); });
+    q('#bDemo').addEventListener('click', ()=>{
+      const sel = state.selected; if(!sel || sel.kind==='planet') return; const list=(sel.kind==='moon'?state.moons:state.sats); const obj=list[sel.idx];
+      const refund=Math.floor(obj.spent*0.75); state.money+=refund; list.splice(sel.idx,1); state.selected=null; updatePanel(); updateHud(); save(); toast('Demolished. Refunded '+refund+'.');
+    });
 
     function beginPlacing(kind){ const base=(kind==='moon'?ECON.moonCost:ECON.satCost); if(state.money < base){ toast('Need '+base+' money.'); return; } toggleShop(false); state.selected=null; updatePanel(); state.placing = { kind, r: Math.max(ORBIT.min, 90), angle: 0 }; }
 
@@ -371,6 +383,18 @@
 
     // autosave
     setInterval(save, 4000);
+
+    // ---------- Simple self-tests (runtime) ----------
+    (function runSelfTests(){
+      try {
+        console.groupCollapsed('PlanetForge self-tests');
+        console.assert(!!document.querySelector('#shopBtn'), 'shopBtn exists');
+        console.assert(typeof toggleShop === 'function', 'toggleShop exists');
+        console.assert(typeof beginPlacing === 'function', 'beginPlacing exists');
+        console.assert(typeof window.on === 'undefined', 'no stray on() helper');
+        console.groupEnd();
+      } catch (e) { console.warn('Self-tests error', e); }
+    })();
   </script>
 </body>
 </html>
