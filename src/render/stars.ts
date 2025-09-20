@@ -1,6 +1,6 @@
-import { STAR_COLORS } from '../constants.js';
-import { state } from '../gameState.js';
-import { worldToScreen } from '../engine/camera.js';
+import { STAR_COLORS } from '../constants';
+import { state } from '../state';
+import { worldToScreen } from '../engine/camera';
 
 export function createStars(N=900){
   state.stars=[]; const range=6000;
@@ -11,7 +11,7 @@ export function createStars(N=900){
     state.stars.push({x,y,r,color,phase});
   }
 }
-export function drawStars(ctx, cam, time){
+export function drawStars(ctx:CanvasRenderingContext2D, cam:any, time:number){
   const left=cam.x, top=cam.y, right=cam.x+innerWidth/cam.zoom, bottom=cam.y+innerHeight/cam.zoom;
   for(const s of state.stars){
     if(s.x<left-100||s.x>right+100||s.y<top-100||s.y>bottom+100) continue;

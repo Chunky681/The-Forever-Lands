@@ -1,6 +1,8 @@
-import { STORAGE_KEY, ECON, SIZES } from '../constants.js';
+import { STORAGE_KEY, ECON, SIZES } from './constants';
 
-export const defaultState = {
+export type State = any; // simplify for now
+
+export const defaultState: State = {
   planet: { x: 0, y: 0, radius: SIZES.planet, level: 1 },
   territory: ECON.territory.base,
   moons: [],
@@ -22,7 +24,7 @@ export const defaultState = {
   selectedScrapId: null
 };
 
-export function load(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null } catch { return null } }
-export function save(state){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+export function load(): State | null { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)!) || null } catch { return null } }
+export function save(state: State){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
-export const state = load() || structuredClone(defaultState);
+export const state: State = (load() || structuredClone(defaultState));

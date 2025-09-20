@@ -1,5 +1,5 @@
-import { state } from '../gameState.js';
-import { worldToScreen } from '../engine/camera.js';
+import { state } from '../state';
+import { worldToScreen } from '../engine/camera';
 
 export function createScraps(N=40){
   if(state.scraps.length) return;
@@ -11,7 +11,7 @@ export function createScraps(N=40){
     state.scraps.push({id:id++, x,y, b,e});
   }
 }
-export function drawScraps(ctx){
+export function drawScraps(ctx:CanvasRenderingContext2D){
   ctx.save();
   for(const sc of state.scraps){
     const p=worldToScreen(sc.x, sc.y);

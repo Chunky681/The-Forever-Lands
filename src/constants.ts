@@ -1,4 +1,4 @@
-export const STORAGE_KEY = 'planetforge:v7';
+export const STORAGE_KEY = 'planetforge:vite-ts-1';
 
 export const ECON = {
   startMoney: 20000,
@@ -13,8 +13,8 @@ export const ECON = {
     battle: { cost:100, build:2.0, speed:120, cap:20 }
   },
   collectionSeconds: 60
-};
+} as const;
 
-export const SIZES = { planet: 32, moon: 10, sat: 8 }; // world units
-export const ORBIT = { min: 60, gap: 24, speedBase: 0.35 };
-export const STAR_COLORS = ['#ffffff','#ffd9a5','#a5c9ff','#fff8d1','#d1e0ff'];
+export const SIZES = { planet: 32, moon: 10, sat: 8 } as const;
+export const ORBIT = { min: 60, gap: 24, speedBase: 0.35 } as const;
+export const STAR_COLORS = ['#ffffff','#ffd9a5','#a5c9ff','#fff8d1','#d1e0ff'] as const;

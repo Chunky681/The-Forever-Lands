@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# builds & tooling output
+dist/
+.vite/
+coverage/
+
+# env / secrets
+.env
+.env.*.local
+
+# editor cruft
+.vscode/
+.idea/
+*.log
+.DS_Store
+Thumbs.db
+
+# OS & misc
+*.swp
+*.tmp
