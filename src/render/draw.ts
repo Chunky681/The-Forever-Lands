@@ -1,6 +1,35 @@
 import { SIZES } from '../constants';
 import { state } from '../state';
 import { worldToScreen } from '../engine/camera';
+import { isPlacementValid } from '../systems/systems';
+
+export function drawPlacementPreview(ctx: CanvasRenderingContext2D, cam: any) {
+  const pl = state.placing;
+  if (!pl) return;
+  const valid = isPlacementValid(pl.r);
+  const ps = worldToScreen(state.planet.x, state.planet.y);
+  // orbit ring
+  ctx.save();
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
+  ctx.strokeStyle = valid ? 'rgba(80,255,140,.85)' : 'rgba(255,90,90,.9)';
+  ctx.beginPath();
+  ctx.arc(ps.x, ps.y, pl.r * cam.zoom, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // ghost body
+  const gx = state.planet.x + Math.cos(pl.angle) * pl.r;
+  const gy = state.planet.y + Math.sin(pl.angle) * pl.r;
+  const gp = worldToScreen(gx, gy);
+  const gr = (pl.kind === 'moon' ? SIZES.moon : SIZES.sat) * cam.zoom;
+  ctx.globalAlpha = 0.8;
+  ctx.beginPath();
+  ctx.arc(gp.x, gp.y, gr, 0, Math.PI * 2);
+  ctx.fillStyle = valid ? '#9fe3b1' : '#ff9aa2';
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
 
 export function drawMissions(ctx:CanvasRenderingContext2D, now:number, ps:{x:number,y:number}, tpFromWorld:(x:number,y:number)=>{x:number,y:number}){
   if(!state.missions.length) return;

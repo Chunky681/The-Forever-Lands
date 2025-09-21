@@ -3,7 +3,6 @@ import { state, save } from './state';
 import { cvs, ctx, cam, screenToWorld, worldToScreen, resize } from './engine/camera';
 import { createStars, drawStars } from './render/stars';
 import { createScraps, drawScraps } from './render/scraps';
-import { drawBodies, drawMissions } from './render/draw';
 import { accrue, orbitSpeed, isPlacementValid, upgradeCost } from './systems/systems';
 import { pickScrap, pickBuilding } from './systems/pick';
 import { updateHud, toggleShop, toast } from './ui/hud';
@@ -11,6 +10,7 @@ import { wireShop, beginPlacing } from './ui/shop';
 import { wireFleet } from './ui/fleet';
 import { wireCollect, showScrapMenu, hideScrapMenu } from './ui/collect';
 import { updatePanel } from './ui/panel';
+import { drawBodies, drawMissions, drawPlacementPreview } from './render/draw';
 
 resize(); createStars(); createScraps(); updateHud(); wireShop(); wireFleet(); wireCollect();
 setInterval(()=>updateHud(), 1000);
@@ -78,6 +78,7 @@ function frame(){
   ctx.clearRect(0,0,innerWidth,innerHeight);
   drawStars(ctx, cam, now);
   const ps = drawBodies(ctx, cam);
+  drawPlacementPreview(ctx, cam);
   drawScraps(ctx);
   drawMissions(ctx, now, ps, worldToScreen);
   requestAnimationFrame(frame);

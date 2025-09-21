@@ -4,9 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PlanetForge (Vite + TS)</title>
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <canvas id="game"></canvas>
+
+    <!-- HUD -->
     <div id="hud" class="panel">
       <div><strong>PlanetForge MVP</strong></div>
       <div>Planet Lv <span id="pLv">1</span> • Territory: <span id="terr">200</span>u</div>
@@ -14,13 +17,17 @@
       <div>Basalt: <span id="basalt">0</span> • Energy: <span id="energy">0</span></div>
       <div>Moons: <span id="moons">0</span> (+<span id="bRate">0</span>/s) • Satellites: <span id="sats">0</span> (+<span id="eRate">0</span>/s)</div>
       <div>Ships — Drones: <span id="drCount">0</span> • Battleships: <span id="bsCount">0</span> • Missions: <span id="msCount">0</span></div>
-      <div class="muted" style="margin-top:4px">R‑drag: pan • Wheel: zoom • <span class="kbd">H</span> shop • Click planet/buildings to manage • Drag from shop to place buildings • Right‑click to cancel placement • Click scraps for actions</div>
+      <div class="muted" style="margin-top:4px">
+        R-drag: pan • Wheel: zoom • <span class="kbd">H</span> shop • Click planet/buildings to manage •
+        Drag from shop to place buildings • Right-click to cancel placement • Click scraps for actions
+      </div>
       <div class="row">
         <button id="shopBtn">Open Shop</button>
         <button id="fleetBtn">Fleet</button>
       </div>
     </div>
 
+    <!-- Shop -->
     <div id="shop" class="panel" style="display:none;">
       <h3>Shop</h3>
       <div class="muted">Build buildings & trade resources. Build ships in Fleet, then use scraps menu to collect.</div>
@@ -39,16 +46,23 @@
         <strong>Trade</strong>
         <div class="row">
           <div>Basalt → money</div>
-          <div><input id="sellBasaltAmt" type="number" min="0" step="1" placeholder="amount" /><button id="sellBasalt">Sell</button></div>
+          <div>
+            <input id="sellBasaltAmt" type="number" min="0" step="1" placeholder="amount" />
+            <button id="sellBasalt">Sell</button>
+          </div>
         </div>
         <div class="row">
           <div>Energy → money</div>
-          <div><input id="sellEnergyAmt" type="number" min="0" step="1" placeholder="amount" /><button id="sellEnergy">Sell</button></div>
+          <div>
+            <input id="sellEnergyAmt" type="number" min="0" step="1" placeholder="amount" />
+            <button id="sellEnergy">Sell</button>
+          </div>
         </div>
         <div style="text-align:right; margin-top:6px"><button id="closeShop">Close</button></div>
       </section>
     </div>
 
+    <!-- Detail Panel (planet/building) -->
     <div id="detailPanel" class="panel" style="display:none;">
       <div><strong id="panelTitle">Details</strong></div>
       <div class="row"><div>Level</div><div><span id="bLvl">1</span> / 10</div></div>
@@ -58,6 +72,7 @@
       <div style="text-align:right; margin-top:6px"><button id="bClose">Close</button></div>
     </div>
 
+    <!-- Fleet Panel -->
     <div id="fleet" class="panel" style="display:none;">
       <div><strong>Fleet</strong></div>
       <div class="row"><div>Drone (25$, 1s)</div><div><button id="qDrone">Build</button></div></div>
@@ -67,27 +82,78 @@
       <div class="row" style="justify-content:flex-end"><button id="fleetClose">Close</button></div>
     </div>
 
+    <!-- Scrap radial menu -->
     <div id="scrapMenu" style="display:none;">
       <div class="ring"></div>
       <div class="btn" id="scrapCollectBtn" title="Collect Resources">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#384fff" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="#ff3d3d"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="#384fff" stroke-width="2"/></svg>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="9" stroke="#384fff" stroke-width="2"/>
+          <circle cx="12" cy="12" r="3" fill="#ff3d3d"/>
+          <path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="#384fff" stroke-width="2"/>
+        </svg>
       </div>
       <div class="label">Collect Resources</div>
     </div>
 
-    <div id="collect" class="panel" style="display:none; min-width:320px;">
-      <div><strong>Collect from Scrap</strong></div>
-      <div class="muted" id="collectInfo">—</div>
-      <div class="row"><div>Drones</div><div><input id="colD" type="number" min="0" step="1" value="0"></div></div>
-      <div class="row"><div>Battleships</div><div><input id="colB" type="number" min="0" step="1" value="0"></div></div>
-      <div class="row"><div>Capacity</div><div><span id="cap">0</span></div></div>
-      <div class="row"><div>ETA</div><div><span id="eta">—</span></div></div>
-      <div class="row" style="justify-content:flex-end"><button id="sendFleet">Send</button><button id="closeCollect">Close</button></div>
+    <!-- Collect dialog (drag & drop slots) -->
+    <div id="collect" class="panel" style="display:none; min-width:520px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+        <strong>Collect from Scrap</strong>
+        <button id="closeCollect">Close</button>
+      </div>
+
+      <div class="muted" id="collectInfo" style="margin:6px 0 10px;">—</div>
+
+      <!-- inventory pills -->
+      <div class="row" style="gap:8px; align-items:center;">
+        <div class="ship-pill" draggable="true" data-type="drone" title="Drag to slot">
+          Drone <span class="count" id="invD">0</span>
+        </div>
+        <div class="ship-pill" draggable="true" data-type="battle" title="Drag to slot">
+          Battleship <span class="count" id="invB">0</span>
+        </div>
+        <div style="margin-left:auto; display:flex; gap:8px;">
+          <button id="autoFill">Autofill</button>
+          <button id="clearSlots">Clear</button>
+        </div>
+      </div>
+
+      <!-- slots -->
+      <div class="slot-grid" id="slots" style="margin:8px 0 4px;"></div>
+      <div class="muted" style="margin-top:0">Tip: drag a ship into a slot; right-click a slot to clear it. Click a slot to edit its amount.</div>
+
+      <!-- slot editor -->
+      <div id="slotEditor" class="slot-editor" style="display:none;">
+        <div class="row"><div>Type:</div><div><strong id="seType">Drone</strong></div></div>
+        <div class="row"><div>Available:</div><div><span id="seAvail">0</span></div></div>
+        <div class="row">
+          <div>Qty</div>
+          <div><input id="seQty" type="number" min="0" step="1" value="0" style="width:90px" /></div>
+        </div>
+        <input id="seRange" type="range" min="0" max="0" step="1" style="width:100%; margin-top:4px;" />
+        <div class="row" style="justify-content:flex-end; gap:6px; margin-top:6px;">
+          <button id="seMax">Max</button>
+          <button id="seApply">Apply</button>
+          <button id="seCancel">Cancel</button>
+        </div>
+      </div>
+      <div class="slot-grid" id="slots" style="margin:8px 0 4px;"></div>
+      <div class="muted" style="margin-top:0">Tip: drag a ship into a slot; right-click a slot to clear it.</div>
+
+      <!-- summary -->
+      <div class="row" style="margin-top:10px;">
+        <div>Selected — Drones: <span id="selD">0</span> • Battleships: <span id="selB">0</span></div>
+        <div>Capacity: <span id="cap">0</span></div>
+        <div>ETA: <span id="eta">—</span></div>
+      </div>
+
+      <div class="row" style="justify-content:flex-end; margin-top:8px;">
+        <button id="sendFleet">Send</button>
+      </div>
     </div>
 
     <div id="toast" class="toast" style="display:none;"></div>
 
-    <link rel="stylesheet" href="/styles.css" />
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
