@@ -1,18 +1,56 @@
+// src/ui/hud.ts
 import { ECON } from '../constants';
 import { state } from '../state';
 
-export function updateHud(){
-  (document.querySelector('#money') as HTMLElement).textContent = String(Math.floor(state.money));
-  (document.querySelector('#basalt') as HTMLElement).textContent = String(Math.floor(state.basalt));
-  (document.querySelector('#energy') as HTMLElement).textContent = String(Math.floor(state.energy));
-  const moonRate = state.moons.reduce((s:number,m:any)=>s+m.lvl,0); const satRate = state.sats.reduce((s:number,m:any)=>s+m.lvl,0);
-  (document.querySelector('#moons') as HTMLElement).textContent = String(state.moons.length); (document.querySelector('#bRate') as HTMLElement).textContent = String(moonRate);
-  (document.querySelector('#sats') as HTMLElement).textContent = String(state.sats.length); (document.querySelector('#eRate') as HTMLElement).textContent = String(satRate);
-  (document.querySelector('#pLv') as HTMLElement).textContent = String(state.planet.level); (document.querySelector('#terr') as HTMLElement).textContent = String(Math.floor(state.territory));
-  (document.querySelector('#moonCost') as HTMLElement).textContent = String(ECON.moonCost); (document.querySelector('#satCost') as HTMLElement).textContent = String(ECON.satCost);
-  (document.querySelector('#drCount') as HTMLElement).textContent = String(state.ships.drone); (document.querySelector('#bsCount') as HTMLElement).textContent = String(state.ships.battle); (document.querySelector('#msCount') as HTMLElement).textContent = String(state.missions.length);
-  (document.querySelector('#queueLen') as HTMLElement).textContent = String(state.queue.length);
+// Small helpers so missing elements never crash the loop
+const $ = (s: string) => document.querySelector(s) as HTMLElement | null;
+const setText = (el: HTMLElement | null, v: string | number) => { if (el) el.textContent = String(v); };
+
+export function updateHud() {
+  // production rates: default level to 1 if missing
+  const moonRate = state.moons.reduce((s: number, m: any) => s + (m?.lvl ?? m?.level ?? 1), 0);
+  const satRate  = state.sats .reduce((s: number, sObj: any) => s + (sObj?.lvl ?? sObj?.level ?? 1), 0);
+
+  setText($('#money'),  Math.floor(state.money));
+  setText($('#basalt'), Math.floor(state.basalt));
+  setText($('#energy'), Math.floor(state.energy));
+
+  setText($('#moons'),  state.moons.length);
+  setText($('#bRate'),  moonRate);
+  setText($('#sats'),   state.sats.length);
+  setText($('#eRate'),  satRate);
+
+  setText($('#pLv'),    state.planet.level);
+  setText($('#terr'),   Math.floor(state.territory));
+
+  setText($('#moonCost'), ECON.moonCost);
+  setText($('#satCost'),  ECON.satCost);
+
+  setText($('#drCount'), state.ships?.drone ?? 0);
+  setText($('#bsCount'), state.ships?.battle ?? 0);
+  setText($('#msCount'), state.missions?.length ?? 0);
+
+  setText($('#queueLen'), (state as any).queue?.length ?? 0);
+
+  // cursor
   document.body.style.cursor = state.placing ? 'crosshair' : 'default';
 }
-export function toast(msg:string){ const t=document.querySelector('#toast') as HTMLElement; t.textContent = msg; t.style.display='block'; clearTimeout((toast as any)._t); (toast as any)._t=setTimeout(()=>{ t.style.display='none'; },1600); }
-export function toggleShop(force?:boolean){ const $shop=document.querySelector('#shop') as HTMLElement; if(typeof force==='boolean') $shop.style.display = force? 'block':'none'; else $shop.style.display = ($shop.style.display==='block'?'none':'block'); }
+
+export function toast(msg: string) {
+  const t = $('#toast');
+  if (!t) { console.log('[toast]', msg); return; }
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout((toast as any)._t);
+  (toast as any)._t = setTimeout(() => { t.style.display = 'none'; }, 1600);
+}
+
+export function toggleShop(force?: boolean) {
+  const shop = $('#shop');
+  if (!shop) return;
+  if (typeof force === 'boolean') {
+    shop.style.display = force ? 'block' : 'none';
+  } else {
+    shop.style.display = (shop.style.display === 'block' ? 'none' : 'block');
+  }
+}

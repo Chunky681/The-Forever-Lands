@@ -1,11 +1,28 @@
+// src/ui/fleet.ts
 import { enqueueShip } from '../systems/systems';
 import { toast } from './hud';
 
-export function wireFleet(){
-  (document.querySelector('#fleetBtn') as HTMLElement).addEventListener('click',()=>{
-    const el=document.querySelector('#fleet') as HTMLElement; el.style.display = (el.style.display==='block')?'none':'block';
+/**
+ * Wire the (legacy) Fleet panel.
+ * This guard makes it safe to call even when the Fleet UI isn't in the DOM
+ * (e.g., newer builds that use the Recruit UI instead).
+ */
+export function wireFleet() {
+  const btn     = document.querySelector('#fleetBtn')   as HTMLElement | null;
+  const panel   = document.querySelector('#fleet')      as HTMLElement | null;
+  const close   = document.querySelector('#fleetClose') as HTMLElement | null;
+  const qDrone  = document.querySelector('#qDrone')     as HTMLElement | null;
+  const qBattle = document.querySelector('#qBattle')    as HTMLElement | null;
+
+  // If the Fleet UI doesn't exist in this build, exit gracefully.
+  if (!btn || !panel) return;
+
+  btn.addEventListener('click', () => {
+    panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
   });
-  (document.querySelector('#fleetClose') as HTMLElement).addEventListener('click',()=>{ (document.querySelector('#fleet') as HTMLElement).style.display='none'; });
-  (document.querySelector('#qDrone') as HTMLElement).addEventListener('click',()=> enqueueShip('drone', toast, ()=>{}));
-  (document.querySelector('#qBattle') as HTMLElement).addEventListener('click',()=> enqueueShip('battle', toast, ()=>{}));
+
+  close?.addEventListener('click', () => { panel.style.display = 'none'; });
+
+  qDrone?.addEventListener('click',  () => enqueueShip('drone',  toast, () => {}));
+  qBattle?.addEventListener('click', () => enqueueShip('battle', toast, () => {}));
 }

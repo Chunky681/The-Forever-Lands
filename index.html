@@ -23,14 +23,14 @@
       </div>
       <div class="row">
         <button id="shopBtn">Open Shop</button>
-        <button id="fleetBtn">Fleet</button>
+        <button id="recruitBtn">Recruit</button>
       </div>
     </div>
 
     <!-- Shop -->
     <div id="shop" class="panel" style="display:none;">
       <h3>Shop</h3>
-      <div class="muted">Build buildings & trade resources. Build ships in Fleet, then use scraps menu to collect.</div>
+      <div class="muted">Build buildings & trade resources.</div>
       <section>
         <strong>Build</strong>
         <div class="row">
@@ -72,16 +72,6 @@
       <div style="text-align:right; margin-top:6px"><button id="bClose">Close</button></div>
     </div>
 
-    <!-- Fleet Panel -->
-    <div id="fleet" class="panel" style="display:none;">
-      <div><strong>Fleet</strong></div>
-      <div class="row"><div>Drone (25$, 1s)</div><div><button id="qDrone">Build</button></div></div>
-      <div class="row"><div>Battleship (100$, 2s)</div><div><button id="qBattle">Build</button></div></div>
-      <div class="row"><div>Queue</div><div><span id="queueLen">0</span> in progress</div></div>
-      <div class="row"><small class="muted">Ships are sent from the scraps menu.</small></div>
-      <div class="row" style="justify-content:flex-end"><button id="fleetClose">Close</button></div>
-    </div>
-
     <!-- Scrap radial menu -->
     <div id="scrapMenu" style="display:none;">
       <div class="ring"></div>
@@ -95,16 +85,14 @@
       <div class="label">Collect Resources</div>
     </div>
 
-    <!-- Collect dialog (drag & drop slots) -->
+    <!-- Collect dialog (you already had a working version) -->
     <div id="collect" class="panel" style="display:none; min-width:520px;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
         <strong>Collect from Scrap</strong>
         <button id="closeCollect">Close</button>
       </div>
-
       <div class="muted" id="collectInfo" style="margin:6px 0 10px;">—</div>
 
-      <!-- inventory pills -->
       <div class="row" style="gap:8px; align-items:center;">
         <div class="ship-pill" draggable="true" data-type="drone" title="Drag to slot">
           Drone <span class="count" id="invD">0</span>
@@ -118,11 +106,10 @@
         </div>
       </div>
 
-      <!-- slots -->
       <div class="slot-grid" id="slots" style="margin:8px 0 4px;"></div>
       <div class="muted" style="margin-top:0">Tip: drag a ship into a slot; right-click a slot to clear it. Click a slot to edit its amount.</div>
 
-      <!-- slot editor -->
+      <!-- Slot editor -->
       <div id="slotEditor" class="slot-editor" style="display:none;">
         <div class="row"><div>Type:</div><div><strong id="seType">Drone</strong></div></div>
         <div class="row"><div>Available:</div><div><span id="seAvail">0</span></div></div>
@@ -137,10 +124,7 @@
           <button id="seCancel">Cancel</button>
         </div>
       </div>
-      <div class="slot-grid" id="slots" style="margin:8px 0 4px;"></div>
-      <div class="muted" style="margin-top:0">Tip: drag a ship into a slot; right-click a slot to clear it.</div>
 
-      <!-- summary -->
       <div class="row" style="margin-top:10px;">
         <div>Selected — Drones: <span id="selD">0</span> • Battleships: <span id="selB">0</span></div>
         <div>Capacity: <span id="cap">0</span></div>
@@ -152,8 +136,56 @@
       </div>
     </div>
 
+    <!-- Recruitment Panel -->
+    <div id="recruit" class="panel" style="display:none; min-width:760px;">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <strong>Recruit</strong>
+        <button id="recruitClose">Close</button>
+      </div>
+
+      <!-- Active recruitment slots -->
+      <div id="rcSlots"></div>
+
+      <hr style="border-color:rgba(255,255,255,.15)">
+
+      <!-- Type picker -->
+      <div class="row" style="gap:8px;">
+        <div class="ship-pill pick" data-pick="drone">Drone (cost <span id="rcDroneCost">25</span>, <span id="rcDroneTime">1</span>s)</div>
+        <div class="ship-pill pick" data-pick="battle">Battleship (cost <span id="rcBattleCost">100</span>, <span id="rcBattleTime">2</span>s)</div>
+      </div>
+
+      <!-- Quantity chooser -->
+      <div class="row">
+        <div>Amount</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input id="rcQty" type="number" min="1" step="1" value="10" style="width:110px;">
+          <input id="rcRange" type="range" min="1" max="100" step="1" style="width:260px;">
+          <button id="rcMax">Max</button>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div class="row">
+        <div>Total cost</div><div><strong id="rcCost">0</strong></div>
+      </div>
+      <div class="row">
+        <div>Total time</div><div><strong id="rcTime">0s</strong></div>
+      </div>
+      <div class="row">
+        <div>Free slots</div><div><strong id="rcFree">0</strong> / <span id="rcMaxSlots">0</span></div>
+      </div>
+
+      <div style="text-align:right; margin-top:6px;">
+        <button id="rcConfirm">Start Recruitment</button>
+      </div>
+    </div>
+
     <div id="toast" class="toast" style="display:none;"></div>
 
     <script type="module" src="/src/main.ts"></script>
+    <script type="module">
+      import { wireRecruit } from '/src/ui/recruit.ts';
+      wireRecruit(); // self-inits its own RAF for progress + DOM refresh
+    </script>
   </body>
 </html>

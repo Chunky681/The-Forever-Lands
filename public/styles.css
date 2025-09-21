@@ -6,7 +6,7 @@ canvas { display:block; width:100vw; height:100vh; background: radial-gradient(c
 #hud { left: 12px; top: 12px; }
 #shop { right: 12px; top: 12px; width: 380px; }
 #detailPanel { left: 12px; bottom: 12px; min-width: 260px; }
-#fleet { right:12px; bottom:12px; min-width:260px; }
+#recruit { right:12px; bottom:12px; min-width:760px; }
 .row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0; }
 .kbd { background:#222; padding:2px 6px; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .muted { opacity:.75 }
@@ -21,50 +21,24 @@ input { padding: 6px 8px; border-radius: 8px; border: 0; }
 #scrapMenu .btn:hover { transform:translate(-50%,-72px) scale(1.05); }
 #scrapMenu .label { position:absolute; left:50%; top:50%; transform:translate(-50%,10px); background:rgba(0,0,0,.6); color:#fff; padding:4px 10px; border-radius:8px; white-space:nowrap; font-size:13px; }
 
-/* Collect menu (dialog) */
-#collect {
-  z-index: 3000;             /* above radial and canvas */
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%); /* center on screen */
-  min-width: 520px;
-  max-width: 90vw;
-  pointer-events: auto;
-}
-
-.ship-pill {
-  display:inline-flex; align-items:center; gap:8px;
-  padding:6px 10px; border-radius:999px; background:#1e293b; color:#fff;
-  border:1px solid rgba(255,255,255,.15); cursor:grab; user-select:none;
-}
+/* Collect dialog */
+#collect { z-index: 3000; left:50%; top:50%; transform:translate(-50%, -50%); min-width:520px; max-width:90vw; pointer-events:auto; }
+.ship-pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; background:#1e293b; color:#fff; border:1px solid rgba(255,255,255,.15); cursor:grab; user-select:none; }
+.ship-pill.pick { cursor:pointer; }
 .ship-pill .count { background:#0f172a; padding:2px 8px; border-radius:999px; }
-
-.slot-grid {
-  display:grid; grid-template-columns: repeat(8, 1fr);
-  gap:8px; padding:8px; background:rgba(255,255,255,.04); border-radius:10px;
-}
-.slot {
-  height:56px; border-radius:10px; border:1px dashed rgba(255,255,255,.25);
-  display:flex; align-items:center; justify-content:center; color:#cbd5e1;
-  background:rgba(0,0,0,.2); position:relative;
-}
-
-/* Slot editor inside collect dialog */
-.slot-editor{
-  background: rgba(0,0,0,.5);
-  border: 1px solid rgba(255,255,255,.15);
-  border-radius: 10px;
-  padding: 8px 10px;
-  margin-top: 8px;
-  z-index: 3200;
-}
-
+.slot-grid { display:grid; grid-template-columns: repeat(8, 1fr); gap:8px; padding:8px; background:rgba(255,255,255,.04); border-radius:10px; }
+.slot { height:56px; border-radius:10px; border:1px dashed rgba(255,255,255,.25); display:flex; align-items:center; justify-content:center; color:#cbd5e1; background:rgba(0,0,0,.2); position:relative; }
 .slot.filled { border-style:solid; border-color: rgba(255,255,255,.4); background:rgba(255,255,255,.06); }
-.slot .badge {
-  position:absolute; top:4px; right:6px; font-size:11px; opacity:.85;
-  background:#0f172a; padding:1px 6px; border-radius:999px; border:1px solid rgba(255,255,255,.15);
-}
-.slot .icon {
-  width:22px; height:22px; border-radius:50%; margin-right:6px;
-  background:linear-gradient(#a7f3d0,#34d399);
-}
+.slot .badge { position:absolute; top:4px; right:6px; font-size:11px; opacity:.85; background:#0f172a; padding:1px 6px; border-radius:999px; border:1px solid rgba(255,255,255,.15); }
+.slot .icon { width:22px; height:22px; border-radius:50%; margin-right:6px; background:linear-gradient(#a7f3d0,#34d399); }
 .slot.battle .icon { background:linear-gradient(#fde68a,#f59e0b); }
+.slot-editor{ background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.15); border-radius: 10px; padding: 8px 10px; margin-top: 8px; z-index: 3200; }
+
+/* Recruitment slots UI */
+.rc-slot { display:flex; align-items:center; gap:10px; padding:8px; border-radius:10px; background:rgba(255,255,255,.05); margin:6px 0; }
+.rc-slot .rc-kind { min-width:140px; display:flex; gap:8px; align-items:center; }
+.rc-slot .rc-kind .icon { width:18px; height:18px; border-radius:50%; background:linear-gradient(#a7f3d0,#34d399); }
+.rc-slot.battle .rc-kind .icon { background:linear-gradient(#fde68a,#f59e0b); }
+.rc-slot .bar { flex:1; height:12px; background:rgba(255,255,255,.15); border-radius:999px; overflow:hidden; }
+.rc-slot .bar > div { height:100%; background:#4ade80; width:0%; }
+.rc-slot .meta { min-width:210px; text-align:right; }

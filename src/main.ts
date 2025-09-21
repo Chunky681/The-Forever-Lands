@@ -1,4 +1,4 @@
-import { ECON, ORBIT } from './constants';
+import { ECON } from './constants';
 import { state, save } from './state';
 import { cvs, ctx, cam, screenToWorld, worldToScreen, resize } from './engine/camera';
 import { createStars, drawStars } from './render/stars';
@@ -7,12 +7,12 @@ import { accrue, orbitSpeed, isPlacementValid, upgradeCost } from './systems/sys
 import { pickScrap, pickBuilding } from './systems/pick';
 import { updateHud, toggleShop, toast } from './ui/hud';
 import { wireShop, beginPlacing } from './ui/shop';
-import { wireFleet } from './ui/fleet';
+import { wireRecruit } from './ui/recruit';
 import { wireCollect, showScrapMenu, hideScrapMenu } from './ui/collect';
 import { updatePanel } from './ui/panel';
 import { drawBodies, drawMissions, drawPlacementPreview } from './render/draw';
 
-resize(); createStars(); createScraps(); updateHud(); wireShop(); wireFleet(); wireCollect();
+resize(); createStars(); createScraps(); updateHud(); wireShop(); wireRecruit(); wireCollect();
 setInterval(()=>updateHud(), 1000);
 setInterval(()=>save(state), 4000);
 
